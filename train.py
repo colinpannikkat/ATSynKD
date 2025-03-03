@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from utils import Datasets, plot_metrics
+from utils import Datasets, plot_metrics, DataLoader
 from losses import AttentionAwareKDLoss
 from models import load_resnet152, load_resnet34
 from argparse import ArgumentParser
@@ -35,7 +35,8 @@ def evaluate(model, data):
 
     return loss.cpu() / len(data), accuracy / len(data)
 
-def train(models, train_dataloader, test_dataloader, optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30):
+def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
+          optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30):
     best_val_loss = (10e12, 0, 0) # storing val_loss, acc, and epoch number
     # Some lists for book-keeping for plotting later
     losses = []
@@ -68,14 +69,20 @@ def train(models, train_dataloader, test_dataloader, optimizer, criterion, devic
             out = [model(inputs) for model in models]
             if kd:
                 loss = criterion(out[0][0], out[0][1], out[1][0], out[1][1])
+
+                # Compute accuracy for student and teacher model pred
+                _, s_predicted = torch.max(F.softmax(output[1][1], dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(output[1][1], dim=1), 1)
+                correct = (s_predicted == t_predicted).sum().item()
+                accuracy = correct / labels.size(0)
             else:
                 _, output = out[0]
                 loss = criterion(output, labels)
 
-            # Compute accuracy
-            prob, predicted = torch.max(F.softmax(output, dim=1), 1)
-            correct = (predicted == labels).sum().item()
-            accuracy = correct / labels.size(0)
+                # Compute accuracy
+                _, predicted = torch.max(F.softmax(output, dim=1), 1)
+                correct = (predicted == labels).sum().item()
+                accuracy = correct / labels.size(0)
             
             # Backward pass and optimize
             loss.backward()
@@ -101,6 +108,7 @@ def train(models, train_dataloader, test_dataloader, optimizer, criterion, devic
             val_accs.append(val_res[1][1])
 
             if val_res[1][0] < best_val_loss[0]:
+                best_model = models[1].state_dict()
                 best_val_loss = (val_res[1][0], val_res[1][1], epoch+1)
 
         else:
