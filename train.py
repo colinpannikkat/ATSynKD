@@ -177,7 +177,7 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(lambda_val=args.llambda)
+        criterion = AttentionAwareKDLoss(llambda=args.llambda)
     else:
         model = None
         if args.big:
