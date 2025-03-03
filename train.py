@@ -154,6 +154,7 @@ def main():
     parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
     parser.add_argument("-epochs", default=30, type=int)
+    parser.add_argument("-llambda", default=0.1, type=float)
     args = parser.parse_args()
 
     hparams = {
@@ -176,7 +177,7 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(lambda_val=0.1)
+        criterion = AttentionAwareKDLoss(lambda_val=args.llambda)
     else:
         model = None
         if args.big:
@@ -203,7 +204,7 @@ def main():
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
         torch.save(best_model, "student_model.pt")
-        l, a = evaluate([models[1]], testset, criterion, kd=False)
+        l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), kd=False)
         print(f"Student model test: Loss: {l}, Accuracy: {a}")
     else:
         torch.save(best_model, "teacher_model.pt")
