@@ -11,9 +11,8 @@ seed = 42
 torch.manual_seed(seed)
 
 # Given a model, X/Y dataset, and batch size, return the average cross-entropy loss and accuracy over the set
-def evaluate(model, data):
+def evaluate(models, data, criterion, kd=False):
     device = torch.device('mps')
-    criterion = nn.CrossEntropyLoss()
     loss = 0
     accuracy = 0
     with torch.no_grad():
@@ -23,15 +22,24 @@ def evaluate(model, data):
             inputs = inputs.to(device)
             labels = labels.to(device)
 
-            # Run forward pass
-            _, outputs = model(inputs)
+            # Forward pass
+            out = [model(inputs) for model in models]
+            if kd:
+                loss += criterion(out[0][0], out[0][1], out[1][0], out[1][1])
 
-            # Compute accuracy
-            predicted = torch.argmax(F.softmax(outputs, dim=1), 1)
-            correct = (predicted == labels).sum().item()
-            accuracy += correct / labels.size(0)
+                # Compute accuracy for student and teacher model pred
+                _, s_predicted = torch.max(F.softmax(out[0][1], dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(out[1][1], dim=1), 1)
+                correct = (s_predicted == t_predicted).sum().item()
+                accuracy += correct / labels.size(0)
+            else:
+                _, output = out[0]
+                loss += criterion(output, labels)
 
-            loss += criterion(outputs, labels)
+                # Compute accuracy
+                _, predicted = torch.max(F.softmax(output, dim=1), 1)
+                correct = (predicted == labels).sum().item()
+                accuracy += correct / labels.size(0)
 
     return loss.cpu() / len(data), accuracy / len(data)
 
@@ -71,8 +79,8 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
                 loss = criterion(out[0][0], out[0][1], out[1][0], out[1][1])
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(output[1][1], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(output[1][1], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(out[0][1], dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(out[1][1], dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy = correct / labels.size(0)
             else:
@@ -94,9 +102,9 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
         if kd:
 
-            val_res = [evaluate(model, test_dataloader) for model in models]
+            val_loss, val_acc = evaluate(models, test_dataloader, criterion, kd)
 
-            print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Teacher Val Loss: {val_res[0][0]}, Teacher Val Accuracy: {val_res[0][1]}, Student Val Loss: {val_res[1][0]}, Student Val Accuracy: {val_res[1][1]}")
+            print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
 
             # Learning rate step
             if (scheduler is not None):
@@ -104,12 +112,12 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
             losses.append(running_loss/len(train_dataloader))
             accs.append(running_acc/len(train_dataloader))
-            val_losses.append(val_res[1][0])
-            val_accs.append(val_res[1][1])
+            val_losses.append(val_loss)
+            val_accs.append(val_acc)
 
-            if val_res[1][0] < best_val_loss[0]:
+            if val_loss < best_val_loss[0]:
                 best_model = models[1].state_dict()
-                best_val_loss = (val_res[1][0], val_res[1][1], epoch+1)
+                best_val_loss = (val_loss, val_acc, epoch+1)
 
         else:
 
@@ -138,17 +146,20 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("-dataset", required=True)
-    parser.add_argument("-n", default=-1)
+    parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true')
     parser.add_argument("-weights")
     parser.add_argument("-small", action='store_true')
     parser.add_argument("-big", action='store_true')
+    parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
+    parser.add_argument("-lr", default=1e-2, type=float)
+    parser.add_argument("-epochs", default=30, type=int)
     args = parser.parse_args()
 
     hparams = {
-        "lr" : 1e-2,
-        "batch_size" : 256,
-        "num_epochs" : 30
+        "lr" : args.lr,
+        "batch_size" : args.batch,
+        "num_epochs" : args.epochs
     }
 
     # Standard loss
@@ -185,12 +196,17 @@ def main():
 
     # Get Data
     data = Datasets(seed=seed)
-    trainset, testset = data.load(args.dataset, args.n)
+    trainset, testset = data.load(args.dataset, args.n, hparams['batch_size'])
 
     # Run training loop
     train_losses, train_accs, val_losses, val_accs, best_model = train(models, trainset, testset, optimizer, criterion, device, num_epochs=hparams['num_epochs'], kd=args.kd)
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
-    torch.save(best_model, "teacher_model.pt")
+    if args.kd:
+        torch.save(best_model, "student_model.pt")
+        l, a = evaluate([models[1]], testset, criterion, kd=False)
+        print(f"Student model test: Loss: {l}, Accuracy: {a}")
+    else:
+        torch.save(best_model, "teacher_model.pt")
 
 if __name__ == "__main__":
     main()

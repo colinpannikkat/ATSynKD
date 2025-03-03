@@ -15,17 +15,17 @@ class AttentionAwareKDLoss(nn.Module):
         
         kl_div_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
-            teacher_dim = t_layer.shape[0]
-            student_dim = s_layer.shape[0]
+            teacher_dim = t_layer.shape[-1]
+            student_dim = s_layer.shape[-1]
 
-            teacher = t_layer.reshape((1, teacher_dim ** 2))
-            student = s_layer.reshape((1, student_dim ** 2))
+            teacher = t_layer.reshape((t_layer.shape[0], teacher_dim ** 2))
+            student = s_layer.reshape((t_layer.shape[0], student_dim ** 2))
 
             teacher = teacher/torch.norm(teacher, p=2)
             student = student/torch.norm(student, p=2)
 
-            kl_div_loss += self.kl_div(F.log_softmax(student), F.log_softmax(teacher))
+            kl_div_loss += self.kl_div(F.log_softmax(student, dim=1), F.log_softmax(teacher, dim=1))
 
-        ce_loss = self.ce(F.softmax(student_out), F.softmax(teacher_out))
+        ce_loss = self.ce(F.softmax(teacher_out, dim=1), F.softmax(student_out, dim=1))
 
         return (1 - self.lambda_val) * kl_div_loss + (self.lambda_val) * ce_loss
