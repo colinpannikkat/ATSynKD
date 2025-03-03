@@ -3,6 +3,12 @@ from torch import nn, Tensor
 import torch.nn.functional as F
 
 class AttentionAwareKDLoss(nn.Module):
+    '''
+    Attention-aware knowledge distillation loss that compares internal representation
+    of two models.
+
+    Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
+    '''
     def __init__(self, lambda_val: float = 0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
