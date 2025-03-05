@@ -69,6 +69,11 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             # Move inputs and labels to gpu
             inputs = inputs.to(device)
             labels = labels.to(device)
+
+            # Normalize batch
+            mean = inputs.mean([0], keepdim=True)
+            std = inputs.std([0], keepdim=True)
+            inputs = (inputs - mean) / std
             
             # Zero the parameter gradients
             optimizer.zero_grad()
@@ -100,39 +105,26 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             running_loss += loss.item()
             running_acc += accuracy
 
+        val_loss, val_acc = evaluate(models, test_dataloader, criterion, kd)
+
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
+
+        # Learning rate step
+        if (scheduler is not None):
+            scheduler.step()
+
+        losses.append(running_loss/len(train_dataloader))
+        accs.append(running_acc/len(train_dataloader))
+        val_losses.append(val_loss)
+        val_accs.append(val_acc)
+
         if kd:
-
-            val_loss, val_acc = evaluate(models, test_dataloader, criterion, kd)
-
-            print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
-
-            # Learning rate step
-            if (scheduler is not None):
-                scheduler.step()
-
-            losses.append(running_loss/len(train_dataloader))
-            accs.append(running_acc/len(train_dataloader))
-            val_losses.append(val_loss)
-            val_accs.append(val_acc)
 
             if val_loss < best_val_loss[0]:
                 best_model = models[1].state_dict()
                 best_val_loss = (val_loss, val_acc, epoch+1)
 
         else:
-
-            val_loss, val_acc = evaluate(models[0], test_dataloader)
-        
-            print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
-
-            # Learning rate step
-            if (scheduler is not None):
-                scheduler.step()
-
-            losses.append(running_loss/len(train_dataloader))
-            accs.append(running_acc/len(train_dataloader))
-            val_losses.append(val_loss)
-            val_accs.append(val_acc)
 
             if val_loss < best_val_loss[0]:
                 best_model = models[0].state_dict()
