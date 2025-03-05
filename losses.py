@@ -14,26 +14,24 @@ class AttentionAwareKDLoss(nn.Module):
 
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
-        self.llambda = nn.Parameter(torch.tensor(llambda), requires_grad=True)
+
+        assert(llambda >= 0 and llambda <= 1)
+        self.llambda = torch.tensor(llambda)
 
     def forward(self, teacher_layers: list[Tensor], teacher_out: Tensor, 
                       student_layers: list[Tensor], student_out: Tensor):
         
         kl_div_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
-            teacher_dim = t_layer.shape[-1]
-            student_dim = s_layer.shape[-1]
 
-            teacher = t_layer.reshape((t_layer.shape[0], teacher_dim ** 2))
-            student = s_layer.reshape((t_layer.shape[0], student_dim ** 2))
+            teacher = t_layer.flatten(start_dim=1)
+            student = s_layer.flatten(start_dim=1)
 
-            # teacher = teacher/torch.norm(teacher, p=2)
-            teacher = F.normalize(teacher, p=1)
-            # student = student/torch.norm(student, p=2)
-            student = F.normalize(student, p=1)
+            # teacher = F.normalize(teacher, p=1)
+            # student = F.normalize(student, p=1)
 
             kl_div_loss += self.kl_div(F.log_softmax(student, dim=1), F.softmax(teacher, dim=1))
 
-        ce_loss = self.ce(teacher_out, student_out)
+        ce_loss = self.ce(student_out, teacher_out.argmax(1))
 
         return (1 - self.llambda) * kl_div_loss + (self.llambda) * ce_loss
