@@ -69,11 +69,6 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             # Move inputs and labels to gpu
             inputs = inputs.to(device)
             labels = labels.to(device)
-
-            # Normalize batch
-            mean = inputs.mean([0], keepdim=True)
-            std = inputs.std([0], keepdim=True)
-            inputs = (inputs - mean) / std
             
             # Zero the parameter gradients
             optimizer.zero_grad()
