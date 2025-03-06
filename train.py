@@ -198,6 +198,8 @@ def main():
         torch.save(best_model, "student_model.pt")
         l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), kd=False)
         print(f"Student model test: Loss: {l}, Accuracy: {a}")
+        l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), kd=False)
+        print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
         torch.save(best_model, "teacher_model.pt")
 
