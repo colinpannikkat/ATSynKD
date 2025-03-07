@@ -32,7 +32,7 @@ def evaluate(models, data, criterion, device, kd=False):
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy += correct / labels.size(0)
             else:
-                _, output = out[0]
+                _, _, output = out[0]
                 loss += criterion(output, labels)
 
                 # Compute accuracy
