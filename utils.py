@@ -158,8 +158,6 @@ class Datasets():
             url = "http://cs231n.stanford.edu/tiny-imagenet-200.zip"
             zip_path = os.path.join(out_dir, 'tiny-imagenet-200.zip')
 
-
-
             print("Downloading Tiny ImageNet dataset...")
             urllib.request.urlretrieve(url, zip_path)
 
@@ -186,7 +184,6 @@ class Datasets():
                 os.rename(os.path.join(val_img_dir, img_file), os.path.join(label_dir, img_file))
 
             os.rmdir(val_img_dir)
-
             os.remove(zip_path)
 
         trainset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'train'), transform=transform)
