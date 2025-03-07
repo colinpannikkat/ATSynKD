@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from utils import Datasets, plot_metrics, DataLoader
 from losses import AttentionAwareKDLoss
-from models import load_resnet152, load_resnet34
+from models import load_resnet152, load_resnet34, load_resnet18
 from argparse import ArgumentParser
 
 seed = 42
@@ -170,7 +170,7 @@ def main():
         if args.big:
             model = load_resnet152(args.dataset)
         if args.small:
-            model = load_resnet34(args.dataset)
+            model = load_resnet18(args.dataset)
         if model is None:
             raise(Exception("No model specified"))
         model = model.to(device)
