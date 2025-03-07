@@ -99,6 +99,14 @@ def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
             model_resnet34.load_state_dict(weights)
 
     return model_resnet34
+
+def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
+    model_resnet18 = None
+    if dataset == "cifar10":
+        model_resnet18 = ResNet34AT(BasicBlock, [1, 1, 1, 1])
+        if weights is not None:
+            model_resnet18.load_state_dict(weights)
+    return model_resnet18
     
 class Encoder(nn.Module):
     def __init__(self, input_channels, latent_dim, condition):
