@@ -156,7 +156,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     models = []
     if args.kd:
-        teacher_weights = torch.load(args.weights)
+        teacher_weights = torch.load(args.weights, map_location=device)
         teacher = load_resnet152(args.dataset, weights=teacher_weights)
         student = load_resnet34(args.dataset)
         teacher.to(device)
