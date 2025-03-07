@@ -11,8 +11,7 @@ seed = 42
 torch.manual_seed(seed)
 
 # Given a model, X/Y dataset, and batch size, return the average cross-entropy loss and accuracy over the set
-def evaluate(models, data, criterion, kd=False):
-    device = torch.device('mps')
+def evaluate(models, data, criterion, device, kd=False):
     loss = 0
     accuracy = 0
     with torch.no_grad():
@@ -100,7 +99,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             running_loss += loss.item()
             running_acc += accuracy
 
-        val_loss, val_acc = evaluate(models, test_dataloader, criterion, kd)
+        val_loss, val_acc = evaluate(models, test_dataloader, criterion, device, kd=kd)
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
 
@@ -191,9 +190,9 @@ def main():
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
         torch.save(best_model, "student_model.pt")
-        l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), kd=False)
+        l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Student model test: Loss: {l}, Accuracy: {a}")
-        l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), kd=False)
+        l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
         torch.save(best_model, "teacher_model.pt")
