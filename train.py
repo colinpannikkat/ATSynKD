@@ -141,6 +141,7 @@ def main():
     parser.add_argument("-lr", default=1e-2, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
+    parser.add_argument("-alpha", default=100, type=float)
     args = parser.parse_args()
 
     hparams = {
@@ -163,7 +164,7 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(llambda=args.llambda)
+        criterion = AttentionAwareKDLoss(llambda=args.llambda, alpha=args.alpha)
     else:
         model = None
         if args.big:
