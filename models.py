@@ -32,10 +32,10 @@ class ResNet152AT(ResNet):
         g3 = self.layer4(g2)
 
         x = self.avgpool(g3)
-        embed = torch.flatten(x, 1)
-        x = self.fc(embed)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
         
-        return [F(g) for g in (g0, g1, g2, g3)], embed, x
+        return [F(g) for g in (g0, g1, g2, g3)], x, x
     
 class ResNet34AT(ResNet):
     """Attention maps of ResNet-34.
@@ -53,8 +53,8 @@ class ResNet34AT(ResNet):
         # self.conv1 = nn.Conv2d(in_dim, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
 
         # These are used to map ResNet34 output before FC to the teacher models dimension
-        self.embed_conv = nn.Linear(512, 2048)
-        self.fc = nn.Linear(2048, num_classes)
+        # self.embed_conv = nn.Linear(512, 2048)
+        # self.fc = nn.Linear(2048, num_classes)
     
     def forward(self, x, F: Callable = lambda x: x.pow(2).sum(dim=1)):
         x = self.conv1(x)
@@ -69,10 +69,9 @@ class ResNet34AT(ResNet):
 
         x = self.avgpool(g3)
         x = torch.flatten(x, 1)
-        embed = self.embed_conv(x)
-        x = self.fc(embed)
+        x = self.fc(x)
         
-        return [F(g) for g in (g0, g1, g2, g3)], embed, x
+        return [F(g) for g in (g0, g1, g2, g3)], x, x
     
 def load_resnet152(dataset: str, weights = None) -> ResNet152AT:
     model_resnet152 = None
@@ -104,10 +103,18 @@ def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
 
 def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
     model_resnet18 = None
+    model_resnet18 = ResNet34AT(BasicBlock, [2, 2, 2, 2])
+    if weights is not None:
+        model_resnet18.load_state_dict(weights)
+
+    return model_resnet18
+
+def load_resnet10(dataset: str, weights = None) -> ResNet34AT:
+    model_resnet18 = None
     model_resnet18 = ResNet34AT(BasicBlock, [1, 1, 1, 1])
     if weights is not None:
         model_resnet18.load_state_dict(weights)
-        
+
     return model_resnet18
     
 class ResEncoder(nn.Module):
