@@ -1,11 +1,14 @@
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
+import torchvision
 from torchvision.datasets import CIFAR10, CIFAR100, ImageNet, MNIST, FashionMNIST, VisionDataset
 from torchvision import transforms
 from torch.utils.data import Subset, DataLoader
 from random import sample
 import matplotlib.pyplot as plt
+import os
+import zipfile
 
 class Datasets():
     '''
@@ -21,7 +24,7 @@ class Datasets():
     Datasets includes:
     - CIFAR-10
     - CIFAR-100
-    - ImageNet
+    - TinyImageNet
     - MNIST
     - Fashion-MNIST
     '''
@@ -41,6 +44,8 @@ class Datasets():
                 return self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir)
             case "imagenet":
                 return self.load_imagenet(n, batch_size=batch_size, out_dir=out_dir)
+            case "tiny-imagenet":
+                return self.load_tinyimagenet(n, batch_size=batch_size, out_dir=out_dir)
             case _:
                 raise ValueError(f"Dataset {dataset} is not supported.")
 
@@ -97,7 +102,7 @@ class Datasets():
         ])
         trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
         testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=256, shuffle=True)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -131,6 +136,58 @@ class Datasets():
         ])
         trainset = ImageNet(out_dir, split='train', download=True, transform=transform)
         testset = ImageNet(out_dir, split='val', download=True, transform=transform)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+
+        if n != -1:
+            train_dataloader = self._get_n_labels(n, trainset, batch_size)
+        else:
+            train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+
+        return train_dataloader, test_dataloader
+    
+    def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/") -> tuple[DataLoader, DataLoader]:
+        transform = transforms.Compose([
+            transforms.Resize(64),
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+
+        if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
+            import urllib.request
+
+            url = "http://cs231n.stanford.edu/tiny-imagenet-200.zip"
+            zip_path = os.path.join(out_dir, 'tiny-imagenet-200.zip')
+
+            print("Downloading Tiny ImageNet dataset...")
+            urllib.request.urlretrieve(url, zip_path)
+
+            print("Extracting Tiny ImageNet dataset...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(out_dir)
+
+            val_dir = os.path.join(out_dir, 'tiny-imagenet-200', 'val')
+            val_img_dir = os.path.join(val_dir, 'images')
+            val_annotations_file = os.path.join(val_dir, 'val_annotations.txt')
+
+            with open(val_annotations_file, 'r') as f:
+                val_annotations = f.readlines()
+
+            val_dict = {}
+            for line in val_annotations:
+                parts = line.strip().split('\t')
+                val_dict[parts[0]] = parts[1]
+
+            for img_file, label in val_dict.items():
+                label_dir = os.path.join(val_dir, label)
+                if not os.path.exists(label_dir):
+                    os.makedirs(label_dir)
+                os.rename(os.path.join(val_img_dir, img_file), os.path.join(label_dir, img_file))
+
+            os.rmdir(val_img_dir)
+            os.remove(zip_path)
+
+        trainset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'train'), transform=transform)
+        testset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'val'), transform=transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
 
         if n != -1:

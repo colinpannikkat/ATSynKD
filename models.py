@@ -51,7 +51,7 @@ class ResNet34AT(ResNet):
         #     in_dim = 3
 
         # self.conv1 = nn.Conv2d(in_dim, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-        
+
         # These are used to map ResNet34 output before FC to the teacher models dimension
         self.embed_conv = nn.Linear(512, 2048)
         self.fc = nn.Linear(2048, num_classes)
@@ -80,7 +80,8 @@ def load_resnet152(dataset: str, weights = None) -> ResNet152AT:
         base_resnet152 = resnet152(weights=ResNet152_Weights.DEFAULT)
         model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
         model_resnet152.load_state_dict(base_resnet152.state_dict())
-    if dataset == "cifar10":
+
+    else:
         model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
         if weights is not None:
             model_resnet152.load_state_dict(weights)
@@ -93,11 +94,12 @@ def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
         base_resnet34 = resnet34(weights=ResNet34_Weights.DEFAULT)
         model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
         model_resnet34.load_state_dict(base_resnet34.state_dict())
-    if dataset == "cifar10":
+
+    else:
         model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
         if weights is not None:
             model_resnet34.load_state_dict(weights)
-
+            
     return model_resnet34
 
 def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
@@ -108,21 +110,65 @@ def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
             model_resnet18.load_state_dict(weights)
     return model_resnet18
     
-class Encoder(nn.Module):
-    def __init__(self, input_channels, latent_dim, condition):
+class ResEncoder(nn.Module):
+    def __init__(self, input_channels, latent_dim, condition_size):
         super(Encoder, self).__init__()
         pass
 
     def forward(self, x, y_soft):
        pass
 
-class Decoder(nn.Module):
-    def __init__(self, latent_dim, output_channels, condition):
+class ResDecoder(nn.Module):
+    def __init__(self, latent_dim, output_channels, condition_size):
         super(Decoder, self).__init__()
         pass
 
     def forward(self, z, y_soft):
         pass
+
+class ResCVAE(nn.Module):
+    def __init__(self, input_dim, latent_dim, output_dim, condition_size):
+        super(ResCVAE, self).__init__()
+        self.encoder = ResEncoder(input_dim, latent_dim, condition_size)
+        self.decoder = ResDecoder(latent_dim, output_dim, condition_size)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def forward(self, x, y_soft):
+        mu, logvar = self.encoder(x, y_soft)
+        z = self.reparameterize(mu, logvar)
+        x_recon = self.decoder(z, y_soft)
+        return x_recon, mu, logvar
+    
+class Encoder(nn.Module):
+    def __init__(self, input_dim, latent_dim, num_classes):
+        super(Encoder, self).__init__()
+        self.fc1 = nn.Linear(input_dim + num_classes, 400)
+        self.fc2_mu = nn.Linear(400, latent_dim)  # Mean
+        self.fc2_logvar = nn.Linear(400, latent_dim)  # Log-variance
+
+    def forward(self, x, y_soft):
+        x = x.view(x.size(0), -1)  # Flatten input to [batch, input_dim]
+        x = torch.cat([x, y_soft], dim=1)  # Concatenate hard labels
+        h = F.relu(self.fc1(x))
+        mu = self.fc2_mu(h)
+        logvar = self.fc2_logvar(h)
+        return mu, logvar
+
+class Decoder(nn.Module):
+    def __init__(self, latent_dim, output_dim, num_classes):
+        super(Decoder, self).__init__()
+        self.fc1 = nn.Linear(latent_dim + num_classes, 400)
+        self.fc2 = nn.Linear(400, output_dim)
+
+    def forward(self, z, y_hard):
+        z = torch.cat([z, y_hard], dim=1)  # Concatenate hard labels
+        h = F.elu(self.fc1(z))
+        x_recon = torch.sigmoid(self.fc2(h))  # Sigmoid for reconstruction
+        return x_recon
 
 class CVAE(nn.Module):
     def __init__(self, input_dim, latent_dim, output_dim, num_classes):
