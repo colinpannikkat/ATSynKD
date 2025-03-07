@@ -196,7 +196,7 @@ def main():
         l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
-        torch.save(best_model, f"{args.dataset}_teacher_model.pt")
+        torch.save(best_model, f"{args.dataset}_{"big" if args.big else "small"}_teacher_model.pt")
 
 if __name__ == "__main__":
     main()
