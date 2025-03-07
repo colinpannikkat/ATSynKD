@@ -27,12 +27,12 @@ def evaluate(models, data, criterion, device, kd=False):
                 loss += criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][1], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][1], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy += correct / labels.size(0)
             else:
-                _, output = out[0]
+                _, _, output = out[0]
                 loss += criterion(output, labels)
 
                 # Compute accuracy
@@ -78,8 +78,8 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
                 loss = criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][1], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][1], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy = correct / labels.size(0)
             else:
