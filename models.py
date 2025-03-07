@@ -1,6 +1,7 @@
 from torchvision.models import resnet152, resnet34, ResNet152_Weights, ResNet34_Weights
 from torchvision.models.resnet import ResNet, BasicBlock, Bottleneck
 import torch
+import torch.functional as F
 from torch import nn
 from typing import Callable
 
@@ -31,10 +32,10 @@ class ResNet152AT(ResNet):
         g3 = self.layer4(g2)
 
         x = self.avgpool(g3)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
+        embed = torch.flatten(x, 1)
+        x = self.fc(embed)
         
-        return [F(g) for g in (g0, g1, g2, g3)], x
+        return [F(g) for g in (g0, g1, g2, g3)], embed, x
     
 class ResNet34AT(ResNet):
     """Attention maps of ResNet-34.
@@ -50,6 +51,10 @@ class ResNet34AT(ResNet):
         #     in_dim = 3
 
         # self.conv1 = nn.Conv2d(in_dim, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        
+        # These are used to map ResNet34 output before FC to the teacher models dimension
+        self.embed_conv = nn.Linear(512, 2048)
+        self.fc = nn.Linear(2048, num_classes)
     
     def forward(self, x, F: Callable = lambda x: x.pow(2).sum(dim=1)):
         x = self.conv1(x)
@@ -64,9 +69,10 @@ class ResNet34AT(ResNet):
 
         x = self.avgpool(g3)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        embed = self.embed_conv(x)
+        x = self.fc(embed)
         
-        return [F(g) for g in (g0, g1, g2, g3)], x
+        return [F(g) for g in (g0, g1, g2, g3)], embed, x
     
 def load_resnet152(dataset: str, weights = None) -> ResNet152AT:
     model_resnet152 = None
@@ -93,3 +99,36 @@ def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
             model_resnet34.load_state_dict(weights)
 
     return model_resnet34
+    
+class Encoder(nn.Module):
+    def __init__(self, input_channels, latent_dim, condition):
+        super(Encoder, self).__init__()
+        pass
+
+    def forward(self, x, y_soft):
+       pass
+
+class Decoder(nn.Module):
+    def __init__(self, latent_dim, output_channels, condition):
+        super(Decoder, self).__init__()
+        pass
+
+    def forward(self, z, y_soft):
+        pass
+
+class CVAE(nn.Module):
+    def __init__(self, input_dim, latent_dim, output_dim, num_classes):
+        super(CVAE, self).__init__()
+        self.encoder = Encoder(input_dim, latent_dim, num_classes)
+        self.decoder = Decoder(latent_dim, output_dim, num_classes)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def forward(self, x, y_soft):
+        mu, logvar = self.encoder(x, y_soft)
+        z = self.reparameterize(mu, logvar)
+        x_recon = self.decoder(z, y_soft)
+        return x_recon, mu, logvar

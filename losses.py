@@ -14,12 +14,13 @@ class AttentionAwareKDLoss(nn.Module):
 
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
+        self.mse = torch.nn.MSELoss()
 
         assert(llambda >= 0 and llambda <= 1)
         self.llambda = torch.tensor(llambda)
 
-    def forward(self, teacher_layers: list[Tensor], teacher_out: Tensor, 
-                      student_layers: list[Tensor], student_out: Tensor):
+    def forward(self, teacher_layers: list[Tensor], teacher_embed: Tensor, teacher_out: Tensor, 
+                      student_layers: list[Tensor], student_embed: Tensor, student_out: Tensor):
         
         kl_div_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
@@ -32,6 +33,20 @@ class AttentionAwareKDLoss(nn.Module):
 
             kl_div_loss += self.kl_div(F.log_softmax(student, dim=1), F.softmax(teacher, dim=1))
 
+        kl_div_loss += self.mse(teacher_embed, student_embed)
+
         ce_loss = self.ce(student_out, teacher_out.argmax(1))
 
         return (1 - self.llambda) * kl_div_loss + (self.llambda) * ce_loss
+    
+def kl_divergence(mu, logvar):
+    return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+def reconstruction_loss(x_recon, x):
+    x = x.view(x.size(0), -1)  # Flatten input to [batch, input_dim]
+    return F.mse_loss(x_recon, x, reduction='sum') / x.shape[0]
+
+def elbo_loss(x, x_recon, mu, logvar):
+    recon_loss = reconstruction_loss(x_recon, x)
+    kl_loss = kl_divergence(mu, logvar)
+    return recon_loss + kl_loss, recon_loss, kl_loss
