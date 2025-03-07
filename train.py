@@ -190,13 +190,13 @@ def main():
     train_losses, train_accs, val_losses, val_accs, best_model = train(models, trainset, testset, optimizer, criterion, device, num_epochs=hparams['num_epochs'], kd=args.kd)
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
-        torch.save(best_model, "student_model.pt")
+        torch.save(best_model, f"{args.dataset}_student_model.pt")
         l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Student model test: Loss: {l}, Accuracy: {a}")
         l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
-        torch.save(best_model, "teacher_model.pt")
+        torch.save(best_model, f"{args.dataset}_teacher_model.pt")
 
 if __name__ == "__main__":
     main()
