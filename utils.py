@@ -102,7 +102,7 @@ class Datasets():
         ])
         trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
         testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=256, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
