@@ -159,6 +159,7 @@ class Datasets():
             zip_path = os.path.join(out_dir, 'tiny-imagenet-200.zip')
 
             print("Downloading Tiny ImageNet dataset...")
+            os.makedirs(out_dir, exist_ok=True)
             urllib.request.urlretrieve(url, zip_path)
 
             print("Extracting Tiny ImageNet dataset...")
