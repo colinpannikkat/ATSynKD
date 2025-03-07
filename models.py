@@ -80,7 +80,8 @@ def load_resnet152(dataset: str, weights = None) -> ResNet152AT:
         base_resnet152 = resnet152(weights=ResNet152_Weights.DEFAULT)
         model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
         model_resnet152.load_state_dict(base_resnet152.state_dict())
-    if dataset == "cifar10":
+
+    else:
         model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
         if weights is not None:
             model_resnet152.load_state_dict(weights)
@@ -93,11 +94,12 @@ def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
         base_resnet34 = resnet34(weights=ResNet34_Weights.DEFAULT)
         model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
         model_resnet34.load_state_dict(base_resnet34.state_dict())
-    if dataset == "cifar10":
+
+    else:
         model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
         if weights is not None:
             model_resnet34.load_state_dict(weights)
-
+            
     return model_resnet34
     
 class ResEncoder(nn.Module):
