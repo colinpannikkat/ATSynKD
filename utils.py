@@ -528,7 +528,10 @@ def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch):
     else:
         d = {}
 
-    d[epoch] = {
+    if "metrics" not in d:
+        d['metrics'] = {}
+
+    d['metrics'][epoch] = {
         "train_loss" : train_loss,
         "train_acc" : train_acc,
         "val_loss" : val_loss,
