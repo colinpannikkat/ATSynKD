@@ -32,24 +32,31 @@ class Datasets():
     '''
     def __init__(self, seed: int = 42):
         torch.manual_seed(seed) # used for fetching random subset of data for few sample
-        pass
 
-    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: bool = False) -> tuple[DataLoader, DataLoader]:
         match dataset:
             case "mnist":
-                return self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "fashionmnist":
-                return self.load_fashionmnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_fashionmnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "cifar10":
-                return self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "cifar100":
-                return self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "imagenet":
-                return self.load_imagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_imagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "tiny-imagenet":
-                return self.load_tinyimagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test = self.load_tinyimagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case _:
                 raise ValueError(f"Dataset {dataset} is not supported.")
+        
+        if synth:
+            train, test = self._generate_synth(train, test)
+
+        return train, test
+    
+    def _generate_synth(self, train, test):
+        pass
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
         return v2.Compose([
@@ -388,7 +395,7 @@ class Schedulers():
         torch.optim.lr_scheduler.SequentialLR
             A sequential learning rate scheduler that first applies a constant learning rate and then a multi-step decay.
         """
-        
+
         constant_epochs = kwargs.get('constant_epochs', 5)
         factor = kwargs.get('factor', 0.3333333)
         milestones = kwargs.get('milestones', [30, 80])
