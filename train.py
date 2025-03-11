@@ -25,15 +25,17 @@ def evaluate(models, data, criterion, device, kd=False):
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                loss += criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
+                teacher_layers, teacher_out = out[0]
+                student_layers, student_out = out[1]
+                loss += criterion(teacher_layers, teacher_out, student_layers, student_out)
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(teacher_out, dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy += correct / labels.size(0)
             else:
-                _, _, output = out[0]
+                _, output = out[0]
                 loss += criterion(output, labels)
 
                 # Compute accuracy
@@ -76,15 +78,17 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                loss = criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
+                teacher_layers, teacher_out = out[0]
+                student_layers, student_out = out[1]
+                loss = criterion(teacher_layers, teacher_out, student_layers, student_out)
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(teacher_out, dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy = correct / labels.size(0)
             else:
-                _, _, output = out[0]
+                _, output = out[0]
                 loss = criterion(output, labels)
 
                 # Compute accuracy
@@ -142,7 +146,6 @@ def main():
     parser.add_argument("-lr", default=1e-2, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
-    parser.add_argument("-alpha", default=0, type=float)
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
@@ -172,7 +175,7 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(llambda=args.llambda, alpha=args.alpha)
+        criterion = AttentionAwareKDLoss(llambda=args.llambda)
     else:
         model = None
         if args.big:
