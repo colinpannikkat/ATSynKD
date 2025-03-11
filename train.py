@@ -147,6 +147,8 @@ def main():
     parser.add_argument("-big", action='store_true')
     parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
+    parser.add_argument("-weight_decay", default=1e-2, type=float)
+    parser.add_argument("-eps", default=1e-8, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
@@ -194,7 +196,7 @@ def main():
     if args.kd:
         params = models[1].parameters()
 
-    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=5e-4)
+    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=args.weight_decay, eps=args.eps)
 
     # Get Data
     data = Datasets(seed=seed)
