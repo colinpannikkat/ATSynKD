@@ -248,7 +248,7 @@ class Schedulers():
             Loads a multi-step learning rate scheduler with optional warmup.
     """
 
-    def __init__(self, optimizer = None, warmup=False, reducer=True):
+    def __init__(self, optimizer = None, warmup=False, reducer=False):
         """
         Initializes the Schedulers class with the given optimizer and warmup flag.
 
@@ -305,9 +305,23 @@ class Schedulers():
             reducer = self.load_reducer(**kwargs)
         if reducer:
             return sched, reducer
+        
         return sched
     
     def load_reducer(self, **kwargs):
+        """
+        Initializes and returns a ReduceLROnPlateau scheduler.
+
+        Args:
+            **kwargs: Arbitrary keyword arguments.
+                - factor (float, optional): Factor by which the learning rate will be reduced. Default is 0.5.
+                - patience (int, optional): Number of epochs with no improvement after which learning rate will be reduced. Default is 5.
+                - min_lr (float, optional): A lower bound on the learning rate of all param groups or each group respectively. Default is 1e-6.
+
+        Returns:
+            torch.optim.lr_scheduler.ReduceLROnPlateau: Initialized learning rate scheduler.
+        """
+
         reducer = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, 
             mode='min', 
