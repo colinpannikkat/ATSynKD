@@ -145,7 +145,7 @@ def main():
     parser.add_argument("-alpha", default=0, type=float)
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
-    parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default={}, type=str)
+    parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
 
     args = parser.parse_args()
 
