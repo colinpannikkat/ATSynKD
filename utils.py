@@ -247,7 +247,7 @@ class Schedulers():
             Loads a multi-step learning rate scheduler with optional warmup.
     """
 
-    def __init__(self, optimizer = None, warmup=False):
+    def __init__(self, optimizer = None, warmup=False, reducer=True):
         """
         Initializes the Schedulers class with the given optimizer and warmup flag.
 
@@ -257,6 +257,7 @@ class Schedulers():
         """
         self.optimizer = optimizer
         self.warmup = warmup
+        self.reducer = reducer
 
     def load(self, scheduler, **kwargs):
         """
@@ -296,7 +297,22 @@ class Schedulers():
             )
             return sched
         
+        reducer = None
+        if self.reducer:
+            reducer = self.load_reducer(**kwargs)
+        if reducer:
+            return sched, reducer
         return sched
+    
+    def load_reducer(self, **kwargs):
+        reducer = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, 
+            mode='min', 
+            factor=kwargs.get('factor', 0.5), 
+            patience=kwargs.get('patience', 5),
+            min_lr=kwargs.get('min_lr', 1e-6)
+        )
+        return reducer
     
     def load_lineardecay(self, **kwargs):
         """
@@ -471,15 +487,15 @@ if __name__ == "__main__":
         fig, axes = plt.subplots(1, num_images, figsize=(15, 3))
         for i, (img, label) in enumerate(zip(images, labels)):
             img = img.permute(1, 2, 0)  # Convert from (C, H, W) to (H, W, C)
-            img = img * torch.tensor([0.2023, 0.1994, 0.2010]).view(1, 1, 3) + torch.tensor([0.4914, 0.4822, 0.4465]).view(1, 1, 3)  # Unnormalize
+            # img = img * torch.tensor([0.2023, 0.1994, 0.2010]).view(1, 1, 3) + torch.tensor([0.4914, 0.4822, 0.4465]).view(1, 1, 3)  # Unnormalize
             img = img.numpy()
             axes[i].imshow(img)
             axes[i].set_title(f"Label: {label.item()}")
             axes[i].axis('off')
         plt.show()
-        plt.savefig("tiny-imagenet.png")
+        plt.savefig("cifar100.png")
         plt.close(fig)
 
     # Example usage 
-    train_loader, _ = datasets.load("tiny-imagenet", n=-1, augment=True)
+    train_loader, _ = datasets.load("cifar100", n=-1, augment=True)
     display_images(train_loader)

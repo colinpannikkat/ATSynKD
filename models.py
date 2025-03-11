@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from typing import Callable
+from torchvision.models import resnet34, ResNet34_Weights
 
 class ResNetAT(ResNet):
     """Attention maps of ResNet for a teacher model.
@@ -79,7 +80,12 @@ def load_resnet32(dataset: str, weights = None) -> ResNetAT:
     if dataset == "cifar10":
         model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=10)
     elif dataset == "cifar100":
+        # base_resnet34 = resnet34(weights = ResNet34_Weights)
         model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=100)
+        # base_dict = base_resnet34.state_dict()
+        # model_dict = model_resnet32.state_dict()
+        # model_dict.update({k: v for k, v in base_dict.items() if k in model_dict and v.shape == model_dict[k].shape})
+        # model_resnet32.load_state_dict(model_dict)
     elif dataset == "tiny-imagenet":
         model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=200)
     else:
