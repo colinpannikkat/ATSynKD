@@ -239,7 +239,7 @@ def main():
                                                                        scheduler=scheduler,
                                                                        prefix=prefix)
 
-    plot_metrics(train_accs, train_losses, val_accs, val_losses, out=f"{prefix}_metrics.png")
+    plot_metrics(train_accs, train_losses, val_accs, val_losses, out=f"{prefix}/metrics.png")
     if args.kd:
         torch.save(best_model, f"{args.dataset}_student_model_{timestamp}.pt")
         l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), device, kd=False)
@@ -247,7 +247,7 @@ def main():
         l, a = evaluate([models[0]], testset, nn.CrossEntropyLoss(), device, kd=False)
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
-        torch.save(best_model, f"{args.dataset}_{"big" if args.big else "small"}_teacher_model_{timestamp}.pt")
+        torch.save(best_model, f"{prefix}/{args.dataset}_{"big" if args.big else "small"}_teacher_model_{timestamp}.pt")
 
 if __name__ == "__main__":
     main()

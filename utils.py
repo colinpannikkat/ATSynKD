@@ -482,7 +482,7 @@ class Schedulers():
         )
         return scheduler
 
-def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True, out="metrics.png"):
+def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=False, out="metrics.png"):
     '''
     Helper function for building a regular matplotlib plot.
     '''
