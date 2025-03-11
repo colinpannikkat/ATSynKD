@@ -282,6 +282,8 @@ class Schedulers():
                 sched = self.load_multistep(**kwargs)
             case "constant+multistep": # used for resnet training
                 sched = self.load_constantmultistep(**kwargs)
+            case "onecycle":
+                sched = self.load_onecycle(**kwargs)
             case _:
                 sched = None
         
@@ -424,6 +426,30 @@ class Schedulers():
             milestones=[constant_epochs]
         )
 
+        return scheduler
+    
+    def load_onecycle(self, **kwargs):
+        """
+        Creates and returns a OneCycleLR scheduler for the optimizer.
+
+        Parameters:
+        **kwargs: Arbitrary keyword arguments.
+            - max_lr (float): Maximum learning rate. Default is 1e-3.
+            - steps_per_epoch (int): Number of steps per epoch. Default is the length of the training loader.
+            - epochs (int): Number of epochs to train. Default is 100.
+            - pct_start (float): The percentage of the cycle (in number of steps) spent increasing the learning rate. Default is 0.3.
+
+        Returns:
+        torch.optim.lr_scheduler.OneCycleLR: A OneCycleLR scheduler instance.
+        """
+        
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer=self.optimizer,
+            max_lr=kwargs.get('max_lr', 1e-3),
+            steps_per_epoch=kwargs.get('steps_per_epoch', kwargs.get('len_train_loader')),
+            epochs=kwargs.get('epochs', 100),
+            pct_start=kwargs.get('pct_start', 0.3)
+        )
         return scheduler
 
 def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):

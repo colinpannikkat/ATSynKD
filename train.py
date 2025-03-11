@@ -151,7 +151,7 @@ def main():
     parser.add_argument("-eps", default=1e-8, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
-    parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
+    parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
 
@@ -201,6 +201,7 @@ def main():
     # Get Data
     data = Datasets(seed=seed)
     trainset, testset = data.load(args.dataset, args.n, hparams['batch_size'])
+    lr_args['len_train_loader'] = len(trainset)
 
     # Define scheduler
     scheduler = None
