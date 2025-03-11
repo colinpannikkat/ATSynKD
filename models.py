@@ -72,7 +72,7 @@ class ResNetAT(ResNet):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         
-        return [F(g) for g in (g0, g1, g2)], x, x
+        return [F(g) for g in (g0, g1, g2)], x
 
 def load_resnet32(dataset: str, weights = None) -> ResNetAT:
     model_resnet32 = None
