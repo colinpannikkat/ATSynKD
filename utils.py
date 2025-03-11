@@ -268,6 +268,8 @@ class Schedulers():
                 sched = self.load_linear(**kwargs)
             case "multistep":
                 sched = self.load_multistep(**kwargs)
+            case "constant+multistep": # used for resnet training
+                sched = self.load_constantmultistep(**kwargs)
             case _:
                 sched = None
         
@@ -362,6 +364,54 @@ class Schedulers():
             milestones=kwargs.get('milestones', [30, 80]),
             gamma=kwargs.get('gamma', 0.1)
         )
+        return scheduler
+    
+    def load_constantmultistep(self, **kwargs):
+        """
+        Creates a learning rate scheduler that first applies a constant learning rate for a specified number of epochs,
+        followed by a multi-step learning rate decay.
+
+        Parameters:
+        -----------
+        **kwargs : dict
+            constant_epochs : int, optional
+                Number of epochs to apply the constant learning rate. Default is 5.
+            factor : float, optional
+                Multiplicative factor of learning rate decay for the constant scheduler. Default is 0.3333333.
+            milestones : list of int, optional
+                List of epoch indices at which to decay the learning rate for the multi-step scheduler. Default is [30, 80].
+            gamma : float, optional
+                Multiplicative factor of learning rate decay for the multi-step scheduler. Default is 0.1.
+
+        Returns:
+        --------
+        torch.optim.lr_scheduler.SequentialLR
+            A sequential learning rate scheduler that first applies a constant learning rate and then a multi-step decay.
+        """
+        
+        constant_epochs = kwargs.get('constant_epochs', 5)
+        factor = kwargs.get('factor', 0.3333333)
+        milestones = kwargs.get('milestones', [30, 80])
+        gamma = kwargs.get('gamma', 0.1)
+
+        constant_scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer=self.optimizer,
+            factor=factor,
+            total_iters=constant_epochs
+        )
+
+        multistep_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=self.optimizer,
+            milestones=milestones,
+            gamma=gamma
+        )
+
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer=self.optimizer,
+            schedulers=[constant_scheduler, multistep_scheduler],
+            milestones=[constant_epochs]
+        )
+
         return scheduler
 
 def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):

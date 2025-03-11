@@ -107,13 +107,11 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
         val_loss, val_acc = evaluate(models, test_dataloader, criterion, device, kd=kd)
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}, LR = {optimizer.param_groups[0]['lr']}")
 
         # Learning rate (and warmup) step
         if scheduler is not None:
             scheduler.step()
-
-        print(f"Epoch {epoch+1}: LR = {optimizer.param_groups[0]['lr']}")
                 
         losses.append(running_loss/len(train_dataloader))
         accs.append(running_acc/len(train_dataloader))
@@ -150,7 +148,7 @@ def main():
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-alpha", default=100, type=float)
-    parser.add_argument("-scheduler", choices=['lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
+    parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default=None, type=str)
 
