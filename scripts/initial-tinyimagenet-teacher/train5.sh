@@ -1,0 +1,1 @@
+python train.py -dataset tiny-imagenet -big -n -1 -lr 0.01 -batch 256 -epochs 50 -scheduler multistep -weight_decay 1e-4 -augment -lr_args '{"milestones" : [15, 30], "gamma" : 0.1}'
