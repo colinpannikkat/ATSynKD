@@ -466,7 +466,7 @@ class Schedulers():
         **kwargs: Arbitrary keyword arguments.
             - max_lr (float): Maximum learning rate. Default is 1e-3.
             - steps_per_epoch (int): Number of steps per epoch. Default is the length of the training loader.
-            - epochs (int): Number of epochs to train. Default is 100.
+            - total_epochs (int): Number of epochs to train. Default is 100.
             - pct_start (float): The percentage of the cycle (in number of steps) spent increasing the learning rate. Default is 0.3.
 
         Returns:
@@ -477,7 +477,7 @@ class Schedulers():
             optimizer=self.optimizer,
             max_lr=kwargs.get('max_lr', 1e-3),
             steps_per_epoch=kwargs.get('steps_per_epoch', kwargs.get('len_train_loader')),
-            epochs=kwargs.get('epochs', 100),
+            epochs=kwargs.get('total_epochs', 100),
             pct_start=kwargs.get('pct_start', 0.3)
         )
         return scheduler
