@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torchvision
 from torchvision.datasets import CIFAR10, CIFAR100, ImageNet, MNIST, FashionMNIST, VisionDataset
 from torchvision import transforms
+from torchvision.transforms import v2
 from torch.utils.data import Subset, DataLoader
 from random import sample
 import matplotlib.pyplot as plt
@@ -51,12 +52,12 @@ class Datasets():
             case _:
                 raise ValueError(f"Dataset {dataset} is not supported.")
             
-    def _apply_augmentation(self, base_transform: transforms.Compose, image_size: int) -> transforms.Compose:
-        return transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(30),
-            transforms.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(1.0, 1.0)),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+    def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
+        return v2.Compose([
+            v2.RandomHorizontalFlip(),
+            v2.RandomRotation(30),
+            v2.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(1.0, 1.0)),
+            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             base_transform
         ])
 
@@ -75,9 +76,9 @@ class Datasets():
         return DataLoader(sampled_subset, batch_size=batch_size, shuffle=True) 
 
     def load_mnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
+        transform = v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize((0.1307,), (0.3081,))
         ])
         if augment: transform = self._apply_augmentation(transform, 28)
         trainset = MNIST(out_dir, train=True, download=True, transform=transform)
@@ -92,9 +93,9 @@ class Datasets():
         return train_dataloader, test_dataloader
 
     def load_fashionmnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
+        transform = v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize((0.5,), (0.5,))
         ])
         testset = FashionMNIST(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 28)
@@ -109,9 +110,9 @@ class Datasets():
         return train_dataloader, test_dataloader
 
     def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        transform = v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         ])
         testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
@@ -126,9 +127,9 @@ class Datasets():
         return train_dataloader, test_dataloader
 
     def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+        transform = v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
         ])
         testset = CIFAR100(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
@@ -143,11 +144,11 @@ class Datasets():
         return train_dataloader, test_dataloader
     
     def load_imagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        transform = v2.Compose([
+            v2.Resize(256),
+            v2.CenterCrop(224),
+            v2.ToTensor(),
+            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
         testset = ImageNet(out_dir, split='val', download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 224)
@@ -162,10 +163,10 @@ class Datasets():
         return train_dataloader, test_dataloader
     
     def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = transforms.Compose([
-            transforms.Resize(64),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        transform = v2.Compose([
+            v2.Resize(64),
+            v2.ToTensor(),
+            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
         if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
             import urllib.request
@@ -346,3 +347,35 @@ def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     if plt_show:
         plt.show()
     plt.clf()
+
+if __name__ == "__main__":
+    # Test the Datasets class for augmentations by displaying a few images from CIFAR-10 un-augmented and augmented using the ipynb syntax
+    datasets = Datasets()
+
+    def display_images(dataloader, num_images=5):
+        """
+        Displays a few images from the given dataloader.
+
+        Args:
+            dataloader (DataLoader): The dataloader to fetch images from.
+            num_images (int, optional): The number of images to display. Defaults to 5.
+        """
+        images, labels = next(iter(dataloader))
+        images = images[:num_images]
+        labels = labels[:num_images]
+
+        fig, axes = plt.subplots(1, num_images, figsize=(15, 3))
+        for i, (img, label) in enumerate(zip(images, labels)):
+            img = img.permute(1, 2, 0)  # Convert from (C, H, W) to (H, W, C)
+            img = img * torch.tensor([0.2023, 0.1994, 0.2010]).view(3, 1, 1) + torch.tensor([0.4914, 0.4822, 0.4465]).view(3, 1, 1)  # Unnormalize
+            img = img.numpy()
+            axes[i].imshow(img)
+            axes[i].set_title(f"Label: {label}")
+            axes[i].axis('off')
+        plt.show()
+
+    # Example usage
+    train_loader, _ = datasets.load("cifar10", n=-1, augment=False)
+    display_images(train_loader)
+    train_loader, _ = datasets.load("cifar10", n=-1, augment=True)
+    display_images(train_loader)
