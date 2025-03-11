@@ -49,6 +49,7 @@ def evaluate(models, data, criterion, device, kd=False):
 def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
           optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30, prefix=".",
           checkpoint=None):
+    
     best_val_loss = (10e12, 0, 0) # storing val_loss, acc, and epoch number
     # Some lists for book-keeping for plotting later
     losses = []
@@ -63,12 +64,14 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
     if len(models) > 1 and kd == False:
         raise(Exception("Cannot do knowledge distllation with one model."))
     
+    models = [model.train() for model in models]
+    
     reduce_scheduler = None
     if type(scheduler) is tuple:
         scheduler, reduce_scheduler = scheduler
 
     for epoch in range(num_epochs):
-        [model.train() for model in models]
+
         running_loss = 0.0
         running_acc = 0.0
         for i, data in enumerate(tqdm(train_dataloader)):
@@ -156,20 +159,20 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'tiny-imagenet'], required=True)
     parser.add_argument("-n", default=-1, type=int)
-    parser.add_argument("-kd", action='store_true')
-    parser.add_argument("-weights")
-    parser.add_argument("-small", action='store_true')
-    parser.add_argument("-big", action='store_true')
+    parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
+    parser.add_argument("-weights", help="Weights to use for teacher model with KD")
+    parser.add_argument("-small", action='store_true', help="Train student model")
+    parser.add_argument("-big", action='store_true', help="Train teacher model")
     parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
-    parser.add_argument("-weight_decay", default=1e-2, type=float)
-    parser.add_argument("-eps", default=1e-8, type=float)
+    parser.add_argument("-weight_decay", default=1e-2, type=float, help="AdamW weight decay")
+    parser.add_argument("-eps", default=1e-8, type=float, help="AdamW epsilon hyperpam")
     parser.add_argument("-epochs", default=30, type=int)
-    parser.add_argument("-llambda", default=0.1, type=float)
+    parser.add_argument("-llambda", default=0.1, type=float, help="Tradeoff term between CE and AT Loss")
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
-    parser.add_argument("-warmup", action='store_true')
-    parser.add_argument("-reducer", action='store_true')
-    parser.add_argument("-synth", default=None, type=int, help="Specify total number of M images")
+    parser.add_argument("-warmup", action='store_true', help="Enable warmup")
+    parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
+    parser.add_argument("-synth", default=None, type=int, help="Desired dataset size, will generate M - N synthetic images")
     parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
 
