@@ -52,11 +52,15 @@ class Datasets():
                 raise ValueError(f"Dataset {dataset} is not supported.")
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
+        # return v2.Compose([
+        #     v2.RandomHorizontalFlip(),
+        #     v2.RandomRotation(30),
+        #     v2.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(1.0, 1.0)),
+        #     v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        #     base_transform
+        # ])
         return v2.Compose([
-            v2.RandomHorizontalFlip(),
-            v2.RandomRotation(30),
-            v2.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(1.0, 1.0)),
-            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            v2.AutoAugment(),
             base_transform
         ])
 
@@ -210,7 +214,7 @@ class Datasets():
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
         else:
-            train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=False)
+            train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
         return train_dataloader, test_dataloader
     
@@ -393,7 +397,6 @@ def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     plt.clf()
 
 if __name__ == "__main__":
-    # Test the Datasets class for augmentations by displaying a few images from CIFAR-10 un-augmented and augmented using the ipynb syntax
     datasets = Datasets()
 
     def display_images(dataloader, num_images=5):
@@ -411,15 +414,15 @@ if __name__ == "__main__":
         fig, axes = plt.subplots(1, num_images, figsize=(15, 3))
         for i, (img, label) in enumerate(zip(images, labels)):
             img = img.permute(1, 2, 0)  # Convert from (C, H, W) to (H, W, C)
-            img = img * torch.tensor([0.2023, 0.1994, 0.2010]).view(3, 1, 1) + torch.tensor([0.4914, 0.4822, 0.4465]).view(3, 1, 1)  # Unnormalize
+            img = img * torch.tensor([0.2023, 0.1994, 0.2010]).view(1, 1, 3) + torch.tensor([0.4914, 0.4822, 0.4465]).view(1, 1, 3)  # Unnormalize
             img = img.numpy()
             axes[i].imshow(img)
-            axes[i].set_title(f"Label: {label}")
+            axes[i].set_title(f"Label: {label.item()}")
             axes[i].axis('off')
         plt.show()
+        plt.savefig("tiny-imagenet.png")
+        plt.close(fig)
 
-    # Example usage
-    train_loader, _ = datasets.load("cifar10", n=-1, augment=False)
-    display_images(train_loader)
-    train_loader, _ = datasets.load("cifar10", n=-1, augment=True)
+    # Example usage 
+    train_loader, _ = datasets.load("tiny-imagenet", n=-1, augment=True)
     display_images(train_loader)
