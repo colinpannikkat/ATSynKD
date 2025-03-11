@@ -44,7 +44,7 @@ def evaluate(models, data, criterion, device, kd=False):
     return loss.cpu() / len(data), accuracy / len(data)
 
 def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
-          optimizer, criterion, device, kd=False, scheduler=None, warmup_scheduler=None, num_epochs=30):
+          optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30):
     best_val_loss = (10e12, 0, 0) # storing val_loss, acc, and epoch number
     # Some lists for book-keeping for plotting later
     losses = []
@@ -109,13 +109,11 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
 
-        # Learning rate and warmup step
-        if (scheduler is not None):
-            if (warmup_scheduler is not None):
-                with warmup_scheduler.dampening():
-                    scheduler.step()
-            else:
-                scheduler.step()
+        # Learning rate (and warmup) step
+        if scheduler is not None:
+            scheduler.step()
+
+        print(f"Epoch {epoch+1}: LR = {optimizer.param_groups[0]['lr']}")
                 
         losses.append(running_loss/len(train_dataloader))
         accs.append(running_acc/len(train_dataloader))
@@ -152,13 +150,14 @@ def main():
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-alpha", default=100, type=float)
-    parser.add_argument("-scheduler", choices=['linear', 'multistep'], default=None, type=str)
+    parser.add_argument("-scheduler", choices=['lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default=None, type=str)
 
     args = parser.parse_args()
 
     lr_args = json.loads(args.lr_args)
+    lr_args['total_epochs'] = args.epochs
 
     hparams = {
         "lr" : args.lr,
@@ -203,10 +202,10 @@ def main():
     trainset, testset = data.load(args.dataset, args.n, hparams['batch_size'])
 
     # Define scheduler
-    scheduler, warmup_scheduler = None, None
+    scheduler = None
     if (args.scheduler):
         sched = Schedulers(optimizer, warmup=args.warmup)
-        scheduler, warmup_scheduler = sched.load(args.scheduler, **lr_args)
+        scheduler = sched.load(args.scheduler, **lr_args)
 
     # Run training loop
     train_losses, train_accs, val_losses, val_accs, best_model = train(models, 
@@ -217,8 +216,7 @@ def main():
                                                                        device, 
                                                                        num_epochs=hparams['num_epochs'], 
                                                                        kd=args.kd, 
-                                                                       scheduler=scheduler, 
-                                                                       warmup_scheduler=warmup_scheduler)
+                                                                       scheduler=scheduler)
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
         torch.save(best_model, f"{args.dataset}_student_model.pt")

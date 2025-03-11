@@ -9,7 +9,6 @@ from random import sample
 import matplotlib.pyplot as plt
 import os
 import zipfile
-from pytorch_warmup import LinearWarmup
 
 class Datasets():
     '''
@@ -212,6 +211,9 @@ class Schedulers():
         load(scheduler, **kwargs):
             Loads the specified scheduler with given parameters.
         
+        load_constant(**kwargs):
+            Loads a linear learning rate scheduler with optional warmup.
+            
         load_linear(**kwargs):
             Loads a linear learning rate scheduler with optional warmup.
         
@@ -235,17 +237,75 @@ class Schedulers():
         Loads the specified scheduler with given parameters.
 
         Args:
-            scheduler (str): The type of scheduler to load ('linear' or 'multistep').
+            scheduler (str): The type of scheduler to load ('constant', 'linear', or 'multistep').
             **kwargs: Additional parameters for the scheduler.
+                - warmup_period (int, optional): The number of warmup iterations. Defaults to 10.
 
         Returns:
-            tuple: A tuple containing the main scheduler and the warmup scheduler (if warmup is True), otherwise None.
+            torch.optim.lr_scheduler._LRScheduler: The configured learning rate scheduler.
         """
         match scheduler:
+            case "lineardecay":
+                sched = self.load_lineardecay(**kwargs)
+            case "constant":
+                sched = self.load_constant(**kwargs)
             case "linear":
-                return self.load_linear(**kwargs)
+                sched = self.load_linear(**kwargs)
             case "multistep":
-                return self.load_multistep(**kwargs)
+                sched = self.load_multistep(**kwargs)
+            case _:
+                sched = None
+        
+        if self.warmup:
+            warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer=self.optimizer,
+                lr_lambda=lambda epoch: epoch / kwargs.get('warmup_period', 10)
+            )
+            sched = torch.optim.lr_scheduler.SequentialLR(
+                optimizer=self.optimizer,
+                schedulers=[warmup_scheduler, sched],
+                milestones=[kwargs.get('warmup_period', 10)]
+            )
+            return sched
+        
+        return sched
+    
+    def load_lineardecay(self, **kwargs):
+        """
+        Loads a constant learning rate scheduler with optional warmup scheduler.
+        Args:
+            **kwargs: Arbitrary keyword arguments.
+                - total_epochs (int): Number of iterations for the learning rate decay.
+        Returns:
+            torch.optim.lr_scheduler._LRScheduler: The configured learning rate scheduler.
+        """
+
+        total_epochs = kwargs.get('total_epochs', 30)
+        
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer=self.optimizer,
+            lr_lambda=lambda x: 1 - x / total_epochs
+        )
+
+        return scheduler
+            
+    def load_constant(self, **kwargs):
+        """
+        Loads a constant learning rate scheduler with optional warmup scheduler.
+        Args:
+            **kwargs: Arbitrary keyword arguments.
+                - factor (float): Multiplicative factor of learning rate decay. Default is 0.3333333.
+                - total_iters (int): Number of iterations for the constant learning rate. Default is 5.
+        Returns:
+            torch.optim.lr_scheduler._LRScheduler: The configured learning rate scheduler.
+        """
+        
+        scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer=self.optimizer,
+            factor=kwargs.get('factor', 0.3333333),
+            total_iters=kwargs.get('total_iters', 5)
+        )
+        return scheduler
 
     def load_linear(self, **kwargs):
         """
@@ -256,26 +316,18 @@ class Schedulers():
                 - start_factor (float, optional): The initial learning rate factor. Defaults to 0.3333333.
                 - end_factor (float, optional): The final learning rate factor. Defaults to 1.0.
                 - total_iters (int, optional): The number of iterations over which to adjust the learning rate. Defaults to 5.
-                - warmup_period (int, optional): The number of warmup iterations. Defaults to 10.
-                - last_epoch (int, optional): The index of the last epoch. Defaults to -1.
 
         Returns:
-            tuple: A tuple containing the linear scheduler and the warmup scheduler (if warmup is True), otherwise None.
+            torch.optim.lr_scheduler._LRScheduler: The configured learning rate scheduler.
         """
+
         scheduler = torch.optim.lr_scheduler.LinearLR(
             optimizer=self.optimizer,
             start_factor=kwargs.get('start_factor', 0.3333333),
             end_factor=kwargs.get('end_factor', 1.0),
             total_iters=kwargs.get('total_iters', 5)
         )
-        if self.warmup:
-            warmup_scheduler = LinearWarmup(
-                optimizer=self.optimizer,
-                warmup_period=kwargs.get('warmup_period', 10),
-                last_step=kwargs.get('last_epoch', -1)
-            )
-            return scheduler, warmup_scheduler
-        return scheduler, None
+        return scheduler
 
     def load_multistep(self, **kwargs):
         """
@@ -285,25 +337,17 @@ class Schedulers():
             **kwargs: Additional parameters for the multi-step scheduler.
                 - milestones (list of int, optional): List of epoch indices. Must be increasing. Defaults to [30, 80].
                 - gamma (float, optional): Multiplicative factor of learning rate decay. Defaults to 0.1.
-                - warmup_period (int, optional): The number of warmup iterations. Defaults to 10.
-                - last_epoch (int, optional): The index of the last epoch. Defaults to -1.
 
         Returns:
-            tuple: A tuple containing the multi-step scheduler and the warmup scheduler (if warmup is True), otherwise None.
+            torch.optim.lr_scheduler._LRScheduler: The configured learning rate scheduler.
         """
+
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer=self.optimizer,
             milestones=kwargs.get('milestones', [30, 80]),
             gamma=kwargs.get('gamma', 0.1)
         )
-        if self.warmup:
-            warmup_scheduler = LinearWarmup(
-                optimizer=self.optimizer,
-                warmup_period=kwargs.get('warmup_period', 10),
-                last_step=kwargs.get('last_epoch', -1)
-            )
-            return scheduler, warmup_scheduler
-        return scheduler, None
+        return scheduler
 
 def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     '''
