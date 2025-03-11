@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from utils import Datasets, Schedulers, plot_metrics, DataLoader
+from utils import Datasets, Schedulers, plot_metrics, save_parameters_and_metrics, DataLoader
 from losses import AttentionAwareKDLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 import json
+import datetime
 
 seed = 42
 torch.manual_seed(seed)
@@ -27,7 +28,7 @@ def evaluate(models, data, criterion, device, kd=False):
             if kd:
                 teacher_layers, teacher_out = out[0]
                 student_layers, student_out = out[1]
-                loss += criterion(teacher_layers, teacher_out, student_layers, student_out)
+                loss += criterion(teacher_layers, teacher_out, student_layers, student_out).item()
 
                 # Compute accuracy for student and teacher model pred
                 _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
@@ -43,7 +44,7 @@ def evaluate(models, data, criterion, device, kd=False):
                 correct = (predicted == labels).sum().item()
                 accuracy += correct / labels.size(0)
 
-    return loss.cpu() / len(data), accuracy / len(data)
+    return loss / len(data), accuracy / len(data)
 
 def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
           optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30):
@@ -53,6 +54,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
     val_losses = []
     accs = []
     val_accs = []
+    lrs = []
     best_model = None
 
     if len(models) > 1 and kd == False:
@@ -110,7 +112,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
         val_loss, val_acc = evaluate(models, test_dataloader, criterion, device, kd=kd)
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}, LR = {optimizer.param_groups[0]['lr']}")
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
 
         # Learning rate (and warmup) step
         if scheduler is not None:
@@ -123,6 +125,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
         accs.append(running_acc/len(train_dataloader))
         val_losses.append(val_loss)
         val_accs.append(val_acc)
+        lrs.append(optimizer.param_groups[0]['lr'])
 
         if kd:
 
@@ -138,7 +141,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
     print(f"Lowest loss of {best_val_loss[0]} found in epoch {best_val_loss[2]} with accuracy {best_val_loss[1]}.")
 
-    return losses, accs, val_losses, val_accs, best_model
+    return losses, accs, val_losses, val_accs, lrs, best_model
 
 def main():
 
@@ -151,6 +154,8 @@ def main():
     parser.add_argument("-big", action='store_true')
     parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
+    parser.add_argument("-weight_decay", default=1e-2, type=float)
+    parser.add_argument("-eps", default=1e-8, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
@@ -198,7 +203,7 @@ def main():
     if args.kd:
         params = models[1].parameters()
 
-    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=5e-4)
+    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=args.weight_decay, eps=args.eps)
 
     # Get Data
     data = Datasets(seed=seed)
@@ -211,7 +216,7 @@ def main():
         scheduler = sched.load(args.scheduler, **lr_args)
 
     # Run training loop
-    train_losses, train_accs, val_losses, val_accs, best_model = train(models, 
+    train_losses, train_accs, val_losses, val_accs, lrs, best_model = train(models, 
                                                                        trainset, 
                                                                        testset, 
                                                                        optimizer, 
@@ -220,6 +225,10 @@ def main():
                                                                        num_epochs=hparams['num_epochs'], 
                                                                        kd=args.kd, 
                                                                        scheduler=scheduler)
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
+
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
         torch.save(best_model, f"{args.dataset}_student_model.pt")
@@ -229,6 +238,8 @@ def main():
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
         torch.save(best_model, f"{args.dataset}_{"big" if args.big else "small"}_teacher_model.pt")
+
+    save_parameters_and_metrics(train_losses, train_accs, val_losses, val_accs, lrs, args, hparams, prefix)
 
 if __name__ == "__main__":
     main()
