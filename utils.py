@@ -10,6 +10,7 @@ from random import sample
 import matplotlib.pyplot as plt
 import os
 import zipfile
+import json
 
 class Datasets():
     '''
@@ -452,6 +453,24 @@ def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     if plt_show:
         plt.show()
     plt.clf()
+
+def save_parameters_and_metrics(train_loss, train_acc, val_loss, val_acc, lrs, args, hparams, prefix):
+    '''
+    Used for saving all parameters and metric for training to a file.
+    '''
+
+    d = {
+        "train_loss" : train_loss,
+        "train_acc" : train_acc,
+        "val_loss" : val_loss,
+        "val_acc" : val_acc,
+        "lrs" : lrs,
+        "args" : vars(args),
+        "hparams" : hparams
+    }
+
+    with open(f"{prefix}_metrics.json", "w") as f:
+        json.dump(d, f, indent=4)
 
 if __name__ == "__main__":
     datasets = Datasets()
