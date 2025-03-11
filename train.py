@@ -141,7 +141,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 def main():
 
     parser = ArgumentParser()
-    parser.add_argument("-dataset", required=True)
+    parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'imagenet', 'tinyimagenet', 'fashionmnist', 'mnist'], required=True)
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true')
     parser.add_argument("-weights")
@@ -152,9 +152,9 @@ def main():
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-alpha", default=100, type=float)
-    parser.add_argument("-scheduler", default=None, type=str)
+    parser.add_argument("-scheduler", choices=['linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
-    parser.add_argument("-lr_args", help="Pass in as JSON string '{'start_factor':0.5, 'warmup_period':5}'", default=None, type=str)
+    parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default=None, type=str)
 
     args = parser.parse_args()
 
