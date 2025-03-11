@@ -197,6 +197,18 @@ class Datasets():
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
         return train_dataloader, test_dataloader
+    
+class Schedulers():
+    def __init__(self):
+        pass
+
+    def load(self, scheduler, *args, **kwargs):
+        match scheduler:
+            case "linear":
+                return self.load_linear(*args, **kwargs)
+
+    def load_linear(self):
+        pass
 
 def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     '''

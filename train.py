@@ -142,6 +142,7 @@ def main():
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
     parser.add_argument("-alpha", default=100, type=float)
+    parser.add_argument("-scheduler", default=None, type=str)
     args = parser.parse_args()
 
     hparams = {
