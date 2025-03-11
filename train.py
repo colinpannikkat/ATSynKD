@@ -194,7 +194,7 @@ def main():
     if args.kd:
         params = models[1].parameters()
 
-    optimizer = torch.optim.AdamW(params, lr=hparams['lr'])
+    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=5e-4)
 
     # Get Data
     data = Datasets(seed=seed)
