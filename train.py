@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from utils import Datasets, Schedulers, plot_metrics, save_parameters_and_metrics, DataLoader
+from utils import Datasets, Schedulers, DataLoader, plot_metrics, save_metrics, save_parameters, save_checkpoint, load_checkpoint
 from losses import AttentionAwareKDLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
@@ -37,7 +37,7 @@ def evaluate(models, data, criterion, device, kd=False):
                 accuracy += correct / labels.size(0)
             else:
                 _, output = out[0]
-                loss += criterion(output, labels)
+                loss += criterion(output, labels).item()
 
                 # Compute accuracy
                 _, predicted = torch.max(F.softmax(output, dim=1), 1)
@@ -47,7 +47,8 @@ def evaluate(models, data, criterion, device, kd=False):
     return loss / len(data), accuracy / len(data)
 
 def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
-          optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30):
+          optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30, prefix=".",
+          checkpoint=None):
     best_val_loss = (10e12, 0, 0) # storing val_loss, acc, and epoch number
     # Some lists for book-keeping for plotting later
     losses = []
@@ -127,17 +128,21 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
         val_accs.append(val_acc)
         lrs.append(optimizer.param_groups[0]['lr'])
 
+        save_metrics(running_loss/len(train_dataloader), running_acc/len(train_dataloader), val_loss, val_acc, optimizer.param_groups[0]['lr'], prefix, epoch)
+
         if kd:
 
             if val_loss < best_val_loss[0]:
                 best_model = models[1].state_dict()
                 best_val_loss = (val_loss, val_acc, epoch+1)
+            save_checkpoint(models[1], optimizer, (scheduler, reduce_scheduler), epoch, filepath=f"{prefix}/models")
 
         else:
 
             if val_loss < best_val_loss[0]:
                 best_model = models[0].state_dict()
                 best_val_loss = (val_loss, val_acc, epoch+1)
+            save_checkpoint(models[0], optimizer, (scheduler, reduce_scheduler), epoch, filepath=f"{prefix}/models")
 
     print(f"Lowest loss of {best_val_loss[0]} found in epoch {best_val_loss[2]} with accuracy {best_val_loss[1]}.")
 
@@ -217,6 +222,11 @@ def main():
         sched = Schedulers(optimizer, warmup=args.warmup, reducer=args.reducer)
         scheduler = sched.load(args.scheduler, **lr_args)
 
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
+
+    save_parameters(args, hparams, prefix)
+
     # Run training loop
     train_losses, train_accs, val_losses, val_accs, lrs, best_model = train(models, 
                                                                        trainset, 
@@ -226,12 +236,10 @@ def main():
                                                                        device, 
                                                                        num_epochs=hparams['num_epochs'], 
                                                                        kd=args.kd, 
-                                                                       scheduler=scheduler)
-    
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
+                                                                       scheduler=scheduler,
+                                                                       prefix=prefix)
 
-    plot_metrics(train_accs, train_losses, val_accs, val_losses)
+    plot_metrics(train_accs, train_losses, val_accs, val_losses, out=f"{prefix}_metrics.png")
     if args.kd:
         torch.save(best_model, f"{args.dataset}_student_model.pt")
         l, a = evaluate([models[1]], testset, nn.CrossEntropyLoss(), device, kd=False)
@@ -240,8 +248,6 @@ def main():
         print(f"Teacher model test: Loss: {l}, Accuracy: {a}")
     else:
         torch.save(best_model, f"{args.dataset}_{"big" if args.big else "small"}_teacher_model.pt")
-
-    save_parameters_and_metrics(train_losses, train_accs, val_losses, val_accs, lrs, args, hparams, prefix)
 
 if __name__ == "__main__":
     main()

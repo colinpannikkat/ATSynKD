@@ -482,7 +482,7 @@ class Schedulers():
         )
         return scheduler
 
-def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
+def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True, out="metrics.png"):
     '''
     Helper function for building a regular matplotlib plot.
     '''
@@ -506,27 +506,110 @@ def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     fig.tight_layout()
     ax1.legend(loc="center")
     ax2.legend(loc="center right")
+
     if plt_show:
         plt.show()
+    else:
+        plt.savefig(out)
+
     plt.clf()
 
-def save_parameters_and_metrics(train_loss, train_acc, val_loss, val_acc, lrs, args, hparams, prefix):
+def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch):
     '''
-    Used for saving all parameters and metric for training to a file.
+    Used for saving all metrics during training to a file.
     '''
 
-    d = {
+    if not os.path.exists(prefix):
+        os.makedirs(prefix)
+
+    if os.path.exists(f"{prefix}/info.json"):
+        with open(f"{prefix}/info.json", "r+") as f:
+            d = json.load(f)
+    else:
+        d = {}
+
+    d[epoch] = {
         "train_loss" : train_loss,
         "train_acc" : train_acc,
         "val_loss" : val_loss,
         "val_acc" : val_acc,
-        "lrs" : lrs,
+        "lr" : lr
+    }
+
+    with open(f"{prefix}_info.json", "w") as f:
+        json.dump(d, f, indent=4)
+
+def save_parameters(args, hparams, prefix):
+    '''
+    Used for saving all parameters for training to a file.
+    '''
+
+    if not os.path.exists(prefix):
+        os.makedirs(prefix)
+
+    if os.path.exists(f"{prefix}/info.json"):
+        with open(f"{prefix}/info.json", "r+") as f:
+            d = json.load(f)
+    else:
+        d = {}
+
+    d["params"] = {
         "args" : vars(args),
         "hparams" : hparams
     }
 
-    with open(f"{prefix}_metrics.json", "w") as f:
+    with open(f"{prefix}/info.json", "w") as f:
         json.dump(d, f, indent=4)
+
+def save_checkpoint(model, optimizer, lr_scheduler, epoch, filepath):
+    """
+    Saves the model, optimizer, and learning rate scheduler states to a checkpoint file.
+
+    Args:
+        model (torch.nn.Module): The model to save.
+        optimizer (torch.optim.Optimizer): The optimizer to save.
+        lr_scheduler (torch.optim.lr_scheduler._LRScheduler or tuple): The learning rate scheduler(s) to save.
+        epoch (int): The current epoch number.
+        filepath (str): The path to save the checkpoint file.
+    """
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'epoch': epoch
+    }
+    if isinstance(lr_scheduler, tuple):
+        checkpoint['lr_scheduler_state_dict'] = [sched.state_dict() for sched in lr_scheduler if sched is not None]
+    else:
+        checkpoint['lr_scheduler_state_dict'] = lr_scheduler.state_dict()
+    
+    if not os.path.exists(filepath):
+        os.makedirs(filepath)
+
+    torch.save(checkpoint, f"{filepath}/epoch-{epoch}.pt")
+
+def load_checkpoint(model, optimizer, lr_scheduler, filepath):
+    """
+    Loads the model, optimizer, and learning rate scheduler states from a checkpoint file.
+
+    Args:
+        model (torch.nn.Module): The model to load.
+        optimizer (torch.optim.Optimizer): The optimizer to load.
+        lr_scheduler (torch.optim.lr_scheduler._LRScheduler or tuple): The learning rate scheduler(s) to load.
+        filepath (str): The path to the checkpoint file.
+    
+    Returns:
+        int: The epoch number from the checkpoint.
+    """
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    if isinstance(lr_scheduler, tuple):
+        for sched, state_dict in zip(lr_scheduler, checkpoint['lr_scheduler_state_dict']):
+            sched.load_state_dict(state_dict)
+    else:
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
+    
+    return checkpoint['epoch']
 
 if __name__ == "__main__":
     datasets = Datasets()
