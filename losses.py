@@ -20,8 +20,8 @@ class AttentionAwareKDLoss(nn.Module):
         self.llambda = torch.tensor(llambda)
         self.alpha = torch.tensor(alpha)
 
-    def forward(self, teacher_layers: list[Tensor], teacher_embed: Tensor, teacher_out: Tensor, 
-                      student_layers: list[Tensor], student_embed: Tensor, student_out: Tensor):
+    def forward(self, teacher_layers: list[Tensor], teacher_out: Tensor, 
+                      student_layers: list[Tensor], student_out: Tensor):
         
         kl_div_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
@@ -33,8 +33,6 @@ class AttentionAwareKDLoss(nn.Module):
             # student = F.normalize(student, p=1)
 
             kl_div_loss += self.kl_div(F.log_softmax(student, dim=1), F.softmax(teacher, dim=1))
-
-        kl_div_loss += self.alpha * self.mse(teacher_embed, student_embed)
 
         ce_loss = self.ce(student_out, teacher_out.argmax(1))
 

@@ -25,13 +25,15 @@ def evaluate(models, data, criterion, device, kd=False):
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                loss += criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
+                teacher_layers, teacher_out = out[0]
+                student_layers, student_out = out[1]
+                loss = criterion(teacher_layers, teacher_out, student_layers, student_out)
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(teacher_out, dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
-                accuracy += correct / labels.size(0)
+                accuracy = correct / labels.size(0)
             else:
                 _, _, output = out[0]
                 loss += criterion(output, labels)
@@ -76,11 +78,13 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                loss = criterion(out[0][0], out[0][1], out[0][2], out[1][0], out[1][1], out[1][2])
+                teacher_layers, teacher_out = out[0]
+                student_layers, student_out = out[1]
+                loss = criterion(teacher_layers, teacher_out, student_layers, student_out)
 
                 # Compute accuracy for student and teacher model pred
-                _, s_predicted = torch.max(F.softmax(out[0][2], dim=1), 1)
-                _, t_predicted = torch.max(F.softmax(out[1][2], dim=1), 1)
+                _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
+                _, t_predicted = torch.max(F.softmax(teacher_out, dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy = correct / labels.size(0)
             else:
