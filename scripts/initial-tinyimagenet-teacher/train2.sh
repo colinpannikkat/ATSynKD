@@ -1,1 +1,1 @@
-python train.py -dataset tiny-imagenet -big -n -1 -lr 0.001 -batch 512 -epochs 50 -weight_decay 1e-4 -augment
+python train.py -dataset tiny-imagenet -big -n -1 -lr 0.001 -batch 512 -epochs 50 -weight_decay 1e-4 -augment -name base_001_nosched_e50_b512
