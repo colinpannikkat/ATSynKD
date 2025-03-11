@@ -9,16 +9,14 @@ class AttentionAwareKDLoss(nn.Module):
 
     Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
     '''
-    def __init__(self, llambda: float = 0.5, alpha: float = 100., *args, **kwargs):
+    def __init__(self, llambda: float = 0.5, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
-        self.mse = torch.nn.MSELoss()
 
         assert(llambda >= 0 and llambda <= 1)
         self.llambda = torch.tensor(llambda)
-        self.alpha = torch.tensor(alpha)
 
     def forward(self, teacher_layers: list[Tensor], teacher_out: Tensor, 
                       student_layers: list[Tensor], student_out: Tensor):

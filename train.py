@@ -146,7 +146,6 @@ def main():
     parser.add_argument("-lr", default=1e-2, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
-    parser.add_argument("-alpha", default=0, type=float)
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
@@ -176,7 +175,7 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(llambda=args.llambda, alpha=args.alpha)
+        criterion = AttentionAwareKDLoss(llambda=args.llambda)
     else:
         model = None
         if args.big:
