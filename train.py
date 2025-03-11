@@ -220,7 +220,7 @@ def main():
 
     # Define scheduler
     scheduler = None
-    if (args.scheduler):
+    if (args.scheduler or args.reducer):
         sched = Schedulers(optimizer, warmup=args.warmup, reducer=args.reducer)
         scheduler = sched.load(args.scheduler, **lr_args)
 
