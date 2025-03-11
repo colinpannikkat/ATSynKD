@@ -61,7 +61,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
     if len(models) > 1 and kd == False:
         raise(Exception("Cannot run normal training with more than one model."))
-    if len(models) > 1 and kd == False:
+    if len(models) == 1 and kd == True:
         raise(Exception("Cannot do knowledge distllation with one model."))
     
     models = [model.train() for model in models]
