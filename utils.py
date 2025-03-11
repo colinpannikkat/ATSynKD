@@ -9,6 +9,7 @@ from random import sample
 import matplotlib.pyplot as plt
 import os
 import zipfile
+from pytorch_warmup import LinearWarmup
 
 class Datasets():
     '''
@@ -199,16 +200,47 @@ class Datasets():
         return train_dataloader, test_dataloader
     
 class Schedulers():
-    def __init__(self):
-        pass
+    def __init__(self, optimizer = None, warmup=False):
+        self.optimizer = optimizer
+        self.warmup = warmup
 
-    def load(self, scheduler, *args, **kwargs):
+    def load(self, scheduler, **kwargs):
         match scheduler:
             case "linear":
-                return self.load_linear(*args, **kwargs)
+                return self.load_linear(**kwargs)
+            case "multistep":
+                return self.load_multistep(**kwargs)
 
-    def load_linear(self):
-        pass
+    def load_linear(self, **kwargs):
+        scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer=self.optimizer,
+            start_factor=kwargs.get('start_factor', 0.3333333),
+            end_factor=kwargs.get('end_factor', 1.0),
+            total_iters=kwargs.get('total_iters', 5)
+        )
+        if self.warmup:
+            warmup_scheduler = LinearWarmup(
+                optimizer=self.optimizer,
+                warmup_period=kwargs.get('warmup_period', 10),
+                last_step=kwargs.get('last_epoch', -1)
+            )
+            return scheduler, warmup_scheduler
+        return scheduler, None
+
+    def load_multistep(self, **kwargs):
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=self.optimizer,
+            milestones=kwargs.get('milestones', [30, 80]),
+            gamma=kwargs.get('gamma', 0.1)
+        )
+        if self.warmup:
+            warmup_scheduler = LinearWarmup(
+                optimizer=self.optimizer,
+                warmup_period=kwargs.get('warmup_period', 10),
+                last_step=kwargs.get('last_epoch', -1)
+            )
+            return scheduler, warmup_scheduler
+        return scheduler, None
 
 def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=True):
     '''
