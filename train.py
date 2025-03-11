@@ -27,13 +27,13 @@ def evaluate(models, data, criterion, device, kd=False):
             if kd:
                 teacher_layers, teacher_out = out[0]
                 student_layers, student_out = out[1]
-                loss = criterion(teacher_layers, teacher_out, student_layers, student_out)
+                loss += criterion(teacher_layers, teacher_out, student_layers, student_out)
 
                 # Compute accuracy for student and teacher model pred
                 _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
                 _, t_predicted = torch.max(F.softmax(teacher_out, dim=1), 1)
                 correct = (s_predicted == t_predicted).sum().item()
-                accuracy = correct / labels.size(0)
+                accuracy += correct / labels.size(0)
             else:
                 _, _, output = out[0]
                 loss += criterion(output, labels)
