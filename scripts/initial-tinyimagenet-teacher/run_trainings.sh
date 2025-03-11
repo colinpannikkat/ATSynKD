@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Array of training scripts
+scripts=("train1.sh" "train2.sh" "train3.sh", "train4.sh", "train5.sh")
+
+# Run each script sequentially in the background
+for script in "${scripts[@]}"; do
+    nohup bash "$script" > "${script}.log" 2>&1 &
+    pid=$!
+    wait $pid  # Wait for the current training to finish before proceeding
+done
+
+echo "All trainings completed."
