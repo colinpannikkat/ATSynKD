@@ -134,17 +134,20 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
             if val_loss < best_val_loss[0]:
                 best_model = models[1].state_dict()
-                best_val_loss = (val_loss, val_acc, epoch+1)
+                best_val_loss = (val_loss, val_acc, epoch)
             save_checkpoint(models[1], optimizer, (scheduler, reduce_scheduler), epoch, filepath=f"{prefix}/models")
 
         else:
 
             if val_loss < best_val_loss[0]:
                 best_model = models[0].state_dict()
-                best_val_loss = (val_loss, val_acc, epoch+1)
+                best_val_loss = (val_loss, val_acc, epoch)
             save_checkpoint(models[0], optimizer, (scheduler, reduce_scheduler), epoch, filepath=f"{prefix}/models")
 
-    print(f"Lowest loss of {best_val_loss[0]} found in epoch {best_val_loss[2]} with accuracy {best_val_loss[1]}.")
+    best_epoch = best_val_loss[2]
+    save_metrics(losses[best_epoch], accs[best_epoch], val_losses[best_epoch], val_accs[best_epoch], lrs[best_epoch], prefix, best_epoch, best=True)
+
+    print(f"Lowest loss of {best_val_loss[0]} found in epoch {best_epoch+1} with accuracy {best_val_loss[1]}.")
 
     return losses, accs, val_losses, val_accs, lrs, best_model
 
@@ -166,6 +169,8 @@ def main():
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-reducer", action='store_true')
+    parser.add_argument("-synth", default=None, type=int, help="Specify total number of M images")
+    parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
 
     args = parser.parse_args()
@@ -213,7 +218,7 @@ def main():
 
     # Get Data
     data = Datasets(seed=seed)
-    trainset, testset = data.load(args.dataset, args.n, hparams['batch_size'])
+    trainset, testset = data.load(dataset=args.dataset, n=args.n, batch_size=hparams['batch_size'], augment=args.augment, synth=args.synth)
     lr_args['len_train_loader'] = len(trainset)
 
     # Define scheduler

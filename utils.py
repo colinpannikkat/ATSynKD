@@ -34,7 +34,7 @@ class Datasets():
     def __init__(self, seed: int = 42):
         torch.manual_seed(seed) # used for fetching random subset of data for few sample
 
-    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: int = None) -> tuple[DataLoader, DataLoader]:
         match dataset:
             case "mnist":
                 train, test = self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
@@ -52,12 +52,12 @@ class Datasets():
                 raise ValueError(f"Dataset {dataset} is not supported.")
         
         if synth:
-            train, test = self._generate_synth(train, test)
+            train, test = self._generate_synth(train, test, synth)
 
         return train, test
     
-    def _generate_synth(self, train, test):
-        pass
+    def _generate_synth(self, train: DataLoader, test: DataLoader, m: int):
+        raise(NotImplementedError)
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
         # return v2.Compose([
@@ -514,7 +514,7 @@ def plot_metrics(train_accs, train_losses, val_accs, val_losses, plt_show=False,
 
     plt.clf()
 
-def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch):
+def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch, best=False):
     '''
     Used for saving all metrics during training to a file.
     '''
@@ -528,16 +528,28 @@ def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch):
     else:
         d = {}
 
-    if "metrics" not in d:
-        d['metrics'] = {}
+    if best: # if saving the best metrics
 
-    d['metrics'][epoch] = {
-        "train_loss" : train_loss,
-        "train_acc" : train_acc,
-        "val_loss" : val_loss,
-        "val_acc" : val_acc,
-        "lr" : lr
-    }
+        d['best_res'] = {
+            "epoch" : epoch+1,
+            "train_loss" : train_loss,
+            "train_acc" : train_acc,
+            "val_loss" : val_loss,
+            "val_acc" : val_acc,
+        }
+
+    else: # saving per epoch
+
+        if "metrics" not in d:
+            d['metrics'] = {}
+
+        d['metrics'][epoch+1] = {
+            "train_loss" : train_loss,
+            "train_acc" : train_acc,
+            "val_loss" : val_loss,
+            "val_acc" : val_acc,
+            "lr" : lr
+        }
 
     with open(f"{prefix}/info.json", "w") as f:
         json.dump(d, f, indent=4)
