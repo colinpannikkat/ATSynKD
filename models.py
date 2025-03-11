@@ -108,6 +108,10 @@ def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
         model_resnet18 = ResNet34AT(BasicBlock, [1, 1, 1, 1])
         if weights is not None:
             model_resnet18.load_state_dict(weights)
+    if dataset == "tiny-imagenet":
+        model_resnet18 = ResNet34AT(BasicBlock, [1, 1, 1, 1])
+        if weights is not None:
+            model_resnet18.load_state_dict(weights)
     return model_resnet18
     
 class ResEncoder(nn.Module):

@@ -186,8 +186,10 @@ def main():
     data = Datasets(seed=seed)
     trainset, testset = data.load(args.dataset, args.n, hparams['batch_size'])
 
+    # Define scheduler
+    scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.9)
     # Run training loop
-    train_losses, train_accs, val_losses, val_accs, best_model = train(models, trainset, testset, optimizer, criterion, device, num_epochs=hparams['num_epochs'], kd=args.kd)
+    train_losses, train_accs, val_losses, val_accs, best_model = train(models, trainset, testset, optimizer, criterion, device, num_epochs=hparams['num_epochs'], kd=args.kd, scheduler=scheduler)
     plot_metrics(train_accs, train_losses, val_accs, val_losses)
     if args.kd:
         torch.save(best_model, "student_model.pt")
