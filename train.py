@@ -175,6 +175,7 @@ def main():
     parser.add_argument("-synth", default=None, type=int, help="Desired dataset size, will generate M - N synthetic images")
     parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
+    parser.add_argument("-name", help="Designate name of training for out file", default="")
 
     args = parser.parse_args()
 
@@ -225,7 +226,7 @@ def main():
         scheduler = sched.load(args.scheduler, **lr_args)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
+    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}_{args.name}"
 
     save_parameters(args, prefix)
 
