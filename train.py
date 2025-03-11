@@ -181,12 +181,6 @@ def main():
     lr_args = json.loads(args.lr_args)
     lr_args['total_epochs'] = args.epochs
 
-    hparams = {
-        "lr" : args.lr,
-        "batch_size" : args.batch,
-        "num_epochs" : args.epochs
-    }
-
     # Standard loss
     criterion = nn.CrossEntropyLoss()
 
@@ -217,11 +211,11 @@ def main():
     if args.kd:
         params = models[1].parameters()
 
-    optimizer = torch.optim.AdamW(params, lr=hparams['lr'], weight_decay=args.weight_decay, eps=args.eps)
+    optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay, eps=args.eps)
 
     # Get Data
     data = Datasets(seed=seed)
-    trainset, testset = data.load(dataset=args.dataset, n=args.n, batch_size=hparams['batch_size'], augment=args.augment, synth=args.synth)
+    trainset, testset = data.load(dataset=args.dataset, n=args.n, batch_size=args.batch, augment=args.augment, synth=args.synth)
     lr_args['len_train_loader'] = len(trainset)
 
     # Define scheduler
@@ -233,7 +227,7 @@ def main():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
 
-    save_parameters(args, hparams, prefix)
+    save_parameters(args, prefix)
 
     # Run training loop
     train_losses, train_accs, val_losses, val_accs, lrs, best_model = train(models, 
@@ -242,7 +236,7 @@ def main():
                                                                        optimizer, 
                                                                        criterion, 
                                                                        device, 
-                                                                       num_epochs=hparams['num_epochs'], 
+                                                                       num_epochs=args.epochs, 
                                                                        kd=args.kd, 
                                                                        scheduler=scheduler,
                                                                        prefix=prefix)

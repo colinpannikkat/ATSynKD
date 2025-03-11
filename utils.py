@@ -554,7 +554,7 @@ def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch, be
     with open(f"{prefix}/info.json", "w") as f:
         json.dump(d, f, indent=4)
 
-def save_parameters(args, hparams, prefix):
+def save_parameters(args, prefix):
     '''
     Used for saving all parameters for training to a file.
     '''
@@ -568,10 +568,7 @@ def save_parameters(args, hparams, prefix):
     else:
         d = {}
 
-    d["params"] = {
-        "args" : vars(args),
-        "hparams" : hparams
-    }
+    d["args"] = vars(args)
 
     with open(f"{prefix}/info.json", "w") as f:
         json.dump(d, f, indent=4)
