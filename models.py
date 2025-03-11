@@ -1,24 +1,16 @@
-from torchvision.models import resnet152, resnet34, ResNet152_Weights, ResNet34_Weights
-from torchvision.models.resnet import ResNet, BasicBlock, Bottleneck
+from torchvision.models.resnet import ResNet, BasicBlock, resnet18
 import torch
 import torch.nn.functional as F
 from torch import nn
 from typing import Callable
 
-class ResNet152AT(ResNet):
-    """Attention maps of ResNet-152.
+class ResNetAT(ResNet):
+    """Attention maps of ResNet for a teacher model.
     
     Overloaded ResNet model to return attention maps.
     """
-    def __init__(self, block, layers, grayscale = False, num_classes = 1000, zero_init_residual = False, groups = 1, width_per_group = 64, replace_stride_with_dilation = None, norm_layer = None):
+    def __init__(self, block, layers, num_classes = 1000, zero_init_residual = False, groups = 1, width_per_group = 64, replace_stride_with_dilation = None, norm_layer = None):
         super().__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group, replace_stride_with_dilation, norm_layer)
-
-        # if grayscale:
-        #     in_dim = 1
-        # else:
-        #     in_dim = 3
-            
-        # self.conv1 = nn.Conv2d(in_dim, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
 
     def forward(self, x, F: Callable = lambda x: x.pow(2).sum(dim=1)):
         x = self.conv1(x)
@@ -36,86 +28,38 @@ class ResNet152AT(ResNet):
         x = self.fc(x)
         
         return [F(g) for g in (g0, g1, g2, g3)], x, x
-    
-class ResNet34AT(ResNet):
-    """Attention maps of ResNet-34.
-    
-    Overloaded ResNet model to return attention maps.
-    """
-    def __init__(self, block, layers, grayscale = False, num_classes = 1000, zero_init_residual = False, groups = 1, width_per_group = 64, replace_stride_with_dilation = None, norm_layer = None):
-        super().__init__(block, layers, num_classes, zero_init_residual, groups, width_per_group, replace_stride_with_dilation, norm_layer)
 
-        # if grayscale:
-        #     in_dim = 1
-        # else:
-        #     in_dim = 3
-
-        # self.conv1 = nn.Conv2d(in_dim, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-
-        # These are used to map ResNet34 output before FC to the teacher models dimension
-        # self.embed_conv = nn.Linear(512, 2048)
-        # self.fc = nn.Linear(2048, num_classes)
-    
-    def forward(self, x, F: Callable = lambda x: x.pow(2).sum(dim=1)):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        g0 = self.layer1(x)
-        g1 = self.layer2(g0)
-        g2 = self.layer3(g1)
-        g3 = self.layer4(g2)
-
-        x = self.avgpool(g3)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        
-        return [F(g) for g in (g0, g1, g2, g3)], x, x
-    
-def load_resnet152(dataset: str, weights = None) -> ResNet152AT:
-    model_resnet152 = None
-    if dataset == "imagenet":
-        base_resnet152 = resnet152(weights=ResNet152_Weights.DEFAULT)
-        model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
-        model_resnet152.load_state_dict(base_resnet152.state_dict())
-
+def load_resnet32(dataset: str, weights = None) -> ResNetAT:
+    model_resnet32 = None
+    if dataset == "cifar10":
+        model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=10)
+    elif dataset == "cifar100":
+        model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=100)
+    elif dataset == "tiny-imagenet":
+        model_resnet32 = ResNetAT(BasicBlock, [5, 5, 5, 0], num_classes=200)
     else:
-        model_resnet152 = ResNet152AT(Bottleneck, [3, 8, 36, 3])
-        if weights is not None:
-            model_resnet152.load_state_dict(weights)
+        raise(Exception(f"Please add clause for {dataset}."))
+    
+    if weights is not None:
+            model_resnet32.load_state_dict(weights)
 
-    return model_resnet152
+    return model_resnet32
 
-def load_resnet34(dataset: str, weights = None) -> ResNet34AT:
-    model_resnet34 = None
-    if dataset == "imagenet":
-        base_resnet34 = resnet34(weights=ResNet34_Weights.DEFAULT)
-        model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
-        model_resnet34.load_state_dict(base_resnet34.state_dict())
-
+def load_resnet20(dataset: str, weights = None) -> ResNetAT:
+    model_resnet20 = None
+    if dataset == "cifar10":
+        model_resnet20 = ResNetAT(BasicBlock, [3, 3, 3, 0], num_classes=10)
+    elif dataset == "cifar100":
+        model_resnet20 = ResNetAT(BasicBlock, [3, 3, 3, 0], num_classes=100)
+    elif dataset == "tiny-imagenet":
+        model_resnet20 = ResNetAT(BasicBlock, [3, 3, 3, 0], num_classes=200)
     else:
-        model_resnet34 = ResNet34AT(BasicBlock, [3, 4, 6, 3])
-        if weights is not None:
-            model_resnet34.load_state_dict(weights)
-            
-    return model_resnet34
-
-def load_resnet18(dataset: str, weights = None) -> ResNet34AT:
-    model_resnet18 = None
-    model_resnet18 = ResNet34AT(BasicBlock, [2, 2, 2, 2])
+        raise(Exception(f"Please add clause for {dataset}."))
+    
     if weights is not None:
-        model_resnet18.load_state_dict(weights)
+            model_resnet20.load_state_dict(weights)
 
-    return model_resnet18
-
-def load_resnet10(dataset: str, weights = None) -> ResNet34AT:
-    model_resnet18 = None
-    model_resnet18 = ResNet34AT(BasicBlock, [1, 1, 1, 1])
-    if weights is not None:
-        model_resnet18.load_state_dict(weights)
-
-    return model_resnet18
+    return model_resnet20
     
 class ResEncoder(nn.Module):
     def __init__(self, input_channels, latent_dim, condition_size):

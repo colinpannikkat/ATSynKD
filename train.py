@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from utils import Datasets, Schedulers, plot_metrics, DataLoader
 from losses import AttentionAwareKDLoss
-from models import load_resnet152, load_resnet34, load_resnet18
+from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 import json
 
@@ -96,24 +96,17 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             loss.backward()
             optimizer.step()
 
-            # Needed since warmup_scheduler would depend on iteration?
-            # if i < len(train_dataloader)-1:
-            #     with warmup_scheduler.dampening():
-            #         pass
-            
             # Print statistics
             running_loss += loss.item()
             running_acc += accuracy
 
         val_loss, val_acc = evaluate(models, test_dataloader, criterion, device, kd=kd)
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}")
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_dataloader)}, Train Accuracy: {running_acc/len(train_dataloader)}, Val Loss: {val_loss}, Val Accuracy: {val_acc}, LR = {optimizer.param_groups[0]['lr']}")
 
         # Learning rate (and warmup) step
         if scheduler is not None:
             scheduler.step()
-
-        print(f"Epoch {epoch+1}: LR = {optimizer.param_groups[0]['lr']}")
                 
         losses.append(running_loss/len(train_dataloader))
         accs.append(running_acc/len(train_dataloader))
@@ -139,7 +132,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 def main():
 
     parser = ArgumentParser()
-    parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'imagenet', 'tinyimagenet', 'fashionmnist', 'mnist'], required=True)
+    parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'tiny-imagenet'], required=True)
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true')
     parser.add_argument("-weights")
@@ -149,8 +142,8 @@ def main():
     parser.add_argument("-lr", default=1e-2, type=float)
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float)
-    parser.add_argument("-alpha", default=100, type=float)
-    parser.add_argument("-scheduler", choices=['lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
+    parser.add_argument("-alpha", default=0, type=float)
+    parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true')
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default=None, type=str)
 
@@ -173,8 +166,8 @@ def main():
     models = []
     if args.kd:
         teacher_weights = torch.load(args.weights, map_location=device)
-        teacher = load_resnet152(args.dataset, weights=teacher_weights)
-        student = load_resnet34(args.dataset)
+        teacher = load_resnet32(args.dataset, weights=teacher_weights)
+        student = load_resnet20(args.dataset)
         teacher.to(device)
         student.to(device)
         models.append(teacher)
@@ -183,9 +176,9 @@ def main():
     else:
         model = None
         if args.big:
-            model = load_resnet152(args.dataset)
+            model = load_resnet32(args.dataset)
         if args.small:
-            model = load_resnet18(args.dataset)
+            model = load_resnet20(args.dataset)
         if model is None:
             raise(Exception("No model specified"))
         model = model.to(device)
