@@ -61,6 +61,10 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
         raise(Exception("Cannot run normal training with more than one model."))
     if len(models) > 1 and kd == False:
         raise(Exception("Cannot do knowledge distllation with one model."))
+    
+    reduce_scheduler = None
+    if type(scheduler) is tuple:
+        scheduler, reduce_scheduler = scheduler
 
     for epoch in range(num_epochs):
         [model.train() for model in models]
@@ -113,6 +117,9 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
         # Learning rate (and warmup) step
         if scheduler is not None:
             scheduler.step()
+
+        if reduce_scheduler is not None:
+            reduce_scheduler.step(val_loss)
                 
         losses.append(running_loss/len(train_dataloader))
         accs.append(running_acc/len(train_dataloader))
