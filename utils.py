@@ -536,7 +536,7 @@ def save_metrics(train_loss, train_acc, val_loss, val_acc, lr, prefix, epoch):
         "lr" : lr
     }
 
-    with open(f"{prefix}_info.json", "w") as f:
+    with open(f"{prefix}/info.json", "w") as f:
         json.dump(d, f, indent=4)
 
 def save_parameters(args, hparams, prefix):
