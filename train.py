@@ -16,6 +16,7 @@ torch.manual_seed(seed)
 def evaluate(models, data, criterion, device, kd=False):
     loss = 0
     accuracy = 0
+    models = [model.eval() for model in models]
     with torch.no_grad():
         for inputs, labels in tqdm(data):
 
@@ -64,13 +65,13 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
     if len(models) == 1 and kd == True:
         raise(Exception("Cannot do knowledge distllation with one model."))
     
-    models = [model.train() for model in models]
     
     reduce_scheduler = None
     if type(scheduler) is tuple:
         scheduler, reduce_scheduler = scheduler
 
     for epoch in range(num_epochs):
+        models = [model.train() for model in models]
 
         running_loss = 0.0
         running_acc = 0.0

@@ -61,10 +61,9 @@ class Datasets():
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
         # return v2.Compose([
+        #     v2.RandomCrop(image_size, padding=4),
         #     v2.RandomHorizontalFlip(),
-        #     v2.RandomRotation(30),
-        #     v2.RandomResizedCrop(image_size, scale=(0.5, 1.0), ratio=(1.0, 1.0)),
-        #     v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        #     v2.RandomRotation(15),
         #     base_transform
         # ])
         return v2.Compose([
@@ -298,7 +297,6 @@ class Schedulers():
                 schedulers=[warmup_scheduler, sched],
                 milestones=[kwargs.get('warmup_period', 10)]
             )
-            return sched
         
         reducer = None
         if self.reducer:
