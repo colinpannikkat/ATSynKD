@@ -96,11 +96,6 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             loss.backward()
             optimizer.step()
 
-            # Needed since warmup_scheduler would depend on iteration?
-            # if i < len(train_dataloader)-1:
-            #     with warmup_scheduler.dampening():
-            #         pass
-            
             # Print statistics
             running_loss += loss.item()
             running_acc += accuracy
