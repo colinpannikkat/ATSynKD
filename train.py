@@ -166,7 +166,9 @@ def main():
     parser.add_argument("-big", action='store_true', help="Train teacher model")
     parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
-    parser.add_argument("-weight_decay", default=1e-2, type=float, help="AdamW weight decay")
+    parser.add_argument("-weight_decay", default=1e-2, type=float, help="AdamW/SGD weight decay")
+    parser.add_argument("-momentum", default=0.9, type=float, help="Momentum for SGD optimizer")
+    parser.add_argument("-sgd", action="store_true", help="Use SGD optimizer instead of AdamW.")
     parser.add_argument("-eps", default=1e-8, type=float, help="AdamW epsilon hyperpam")
     parser.add_argument("-epochs", default=30, type=int)
     parser.add_argument("-llambda", default=0.1, type=float, help="Tradeoff term between CE and AT Loss")
@@ -212,8 +214,11 @@ def main():
     params = models[0].parameters()
     if args.kd:
         params = models[1].parameters()
-
-    optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay, eps=args.eps)
+    
+    if (args.sgd):
+        optimizer = torch.optim.SGD(params, lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
+    else:
+        optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay, eps=args.eps)
 
     # Get Data
     data = Datasets(seed=seed)
