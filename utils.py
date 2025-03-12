@@ -68,6 +68,7 @@ class Datasets():
         # ])
         return v2.Compose([
             v2.AutoAugment(),
+            v2.RandomHorizontalFlip(),
             base_transform
         ])
 
@@ -176,7 +177,6 @@ class Datasets():
         transform = v2.Compose([
             v2.Resize(64),
             v2.ToTensor(),
-            v2.RandomHorizontalFlip(),
             v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
         if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
