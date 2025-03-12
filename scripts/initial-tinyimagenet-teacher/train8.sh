@@ -1,0 +1,1 @@
+python train.py -dataset tiny-imagenet -big -n -1 -lr 0.001 -batch 512 -epochs 200 -weight_decay 5e-4 -augment -reducer -warmup -scheduler multistep -lr_args '{"milestones" : [75, 150], "gamma" : 0.1, "factor" : 0.1}' -name base_sched_b512_e200_sched_lr001_reduce
