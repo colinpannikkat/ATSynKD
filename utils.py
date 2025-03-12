@@ -292,11 +292,14 @@ class Schedulers():
                 optimizer=self.optimizer,
                 lr_lambda=lambda epoch: epoch / kwargs.get('warmup_period', 10)
             )
-            sched = torch.optim.lr_scheduler.SequentialLR(
-                optimizer=self.optimizer,
-                schedulers=[warmup_scheduler, sched],
-                milestones=[kwargs.get('warmup_period', 10)]
-            )
+            if sched:
+                sched = torch.optim.lr_scheduler.SequentialLR(
+                    optimizer=self.optimizer,
+                    schedulers=[warmup_scheduler, sched],
+                    milestones=[kwargs.get('warmup_period', 10)]
+                )
+            else:
+                sched = warmup_scheduler
         
         reducer = None
         if self.reducer:
