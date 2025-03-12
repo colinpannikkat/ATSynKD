@@ -288,18 +288,27 @@ class Schedulers():
                 sched = None
         
         if self.warmup:
+            warmup_period = kwargs.get('warmup_period', 10)
             warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer=self.optimizer,
-                lr_lambda=lambda epoch: epoch / kwargs.get('warmup_period', 10)
+                lr_lambda=lambda epoch: epoch / warmup_period
             )
             if sched:
                 sched = torch.optim.lr_scheduler.SequentialLR(
                     optimizer=self.optimizer,
                     schedulers=[warmup_scheduler, sched],
-                    milestones=[kwargs.get('warmup_period', 10)]
+                    milestones=[warmup_period]
                 )
             else:
-                sched = warmup_scheduler
+                constant_sched = self.load_constant(
+                    factor=1,
+                    total_iters=1
+                )
+                sched = torch.optim.lr_scheduler.SequentialLR(
+                    optimizer=self.optimizer,
+                    schedulers=[warmup_scheduler, constant_sched],
+                    milestones=[warmup_period]
+                )
         
         reducer = None
         if self.reducer:
