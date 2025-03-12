@@ -93,7 +93,7 @@ class Datasets():
         if augment: transform = self._apply_augmentation(transform, 28)
         trainset = MNIST(out_dir, train=True, download=True, transform=transform)
         testset = MNIST(out_dir, train=False, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -110,7 +110,7 @@ class Datasets():
         testset = FashionMNIST(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 28)
         trainset = FashionMNIST(out_dir, train=True, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -127,7 +127,7 @@ class Datasets():
         testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
         trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -144,7 +144,7 @@ class Datasets():
         testset = CIFAR100(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
         trainset = CIFAR100(out_dir, train=True, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -163,7 +163,7 @@ class Datasets():
         testset = ImageNet(out_dir, split='val', download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 224)
         trainset = ImageNet(out_dir, split='train', download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
@@ -216,7 +216,7 @@ class Datasets():
         testset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'val'), transform=transform)
         if augment: transform = self._apply_augmentation(transform, 64)
         trainset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'train'), transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
             train_dataloader = self._get_n_labels(n, trainset, batch_size)
