@@ -187,7 +187,7 @@ def main():
         progress_reporter=reporter
     )
 
-    print("Best hyperparameters found were: ", analysis.best_config)
+    print("Best hyperparameters found were: ", analysis.get_best_config(metric="loss", mode="min"))
 
 if __name__ == "__main__":
     main()
