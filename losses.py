@@ -38,6 +38,36 @@ class AttentionAwareKDLoss(nn.Module):
 
         return (1 - self.llambda) * kl_div_loss + (self.llambda) * ce_loss
     
+class KDLoss(nn.Module):
+    '''
+    Regular unsupervised knowledge distillation loss with soft-label and 
+    pseudo-hard-label comparison.
+
+    From Equation 1 of Black-box Few-shot Knowledge Distillation.
+
+    '''
+    def __init__(self, llambda: float = 0.5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.llambda = llambda
+        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
+        self.ce = torch.nn.CrossEntropyLoss()
+
+    def forward(self, outputs: list[Tensor | list[Tensor]]):
+
+        teacher_out = outputs[0][0]
+        student_out = outputs[1][0]
+
+        # Soft targets
+        soft_targets = F.log_softmax(student_out, dim=1)
+        soft_labels = F.softmax(teacher_out, dim=1)
+        kl_div_loss = self.kl_div(soft_targets, soft_labels)
+
+        # Hard targets
+        hard_label = teacher_out.argmax(dim=1)
+        ce_loss = self.ce(student_out, hard_label)
+
+        return self.llambda * kl_div_loss + (1.0 - self.llambda) * ce_loss
+    
 def kl_divergence(mu, logvar):
     return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
