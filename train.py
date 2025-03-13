@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from utils import Datasets, Schedulers, DataLoader, plot_metrics, save_metrics, save_parameters, save_checkpoint, load_checkpoint
-from losses import AttentionAwareKDLoss
+from losses import AttentionAwareKDLoss, KDLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 import json
@@ -161,6 +161,7 @@ def main():
     parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'tiny-imagenet'], required=True)
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
+    parser.add_argument("-at", action='store_true', help="Train with attention aware distillation")
     parser.add_argument("-weights", help="Weights to use for teacher model with KD")
     parser.add_argument("-small", action='store_true', help="Train student model")
     parser.add_argument("-big", action='store_true', help="Train teacher model")
@@ -171,7 +172,7 @@ def main():
     parser.add_argument("-sgd", action="store_true", help="Use SGD optimizer instead of AdamW.")
     parser.add_argument("-eps", default=1e-8, type=float, help="AdamW epsilon hyperpam")
     parser.add_argument("-epochs", default=30, type=int)
-    parser.add_argument("-llambda", default=0.1, type=float, help="Tradeoff term between CE and AT Loss")
+    parser.add_argument("-llambda", default=0.9, type=float, help="Tradeoff term between CE and KD Loss terms. Larger places more weight on CE. See losses.py.")
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true', help="Enable warmup")
     parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
@@ -199,7 +200,11 @@ def main():
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(llambda=args.llambda)
+
+        if (args.at):
+            criterion = AttentionAwareKDLoss(llambda=args.llambda)
+        else:
+            criterion = KDLoss(llambda=args.llambda)
     else:
         model = None
         if args.big:
