@@ -91,7 +91,10 @@ def load_resnet32(dataset: str, weights = None) -> ResNetAT:
         raise(Exception(f"Please add clause for {dataset}."))
     
     if weights is not None:
-            model_resnet32.load_state_dict(weights)
+            try:
+                model_resnet32.load_state_dict(weights)
+            except Exception as e:
+                model_resnet32.load_state_dict(weights['model_state_dict'])
 
     return model_resnet32
 
@@ -107,7 +110,10 @@ def load_resnet20(dataset: str, weights = None) -> ResNetAT:
         raise(Exception(f"Please add clause for {dataset}."))
     
     if weights is not None:
-            model_resnet20.load_state_dict(weights)
+            try:
+                model_resnet20.load_state_dict(weights)
+            except Exception as e:
+                model_resnet20.load_state_dict(weights['model_state_dict'])
 
     return model_resnet20
     

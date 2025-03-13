@@ -91,7 +91,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             if kd:
                 teacher_out = out[0][0]
                 student_out = out[1][0]
-                loss += criterion(out).item()
+                loss = criterion(out).item()
 
                 # Compute accuracy for student and teacher model pred
                 _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
