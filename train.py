@@ -232,7 +232,7 @@ def main():
         scheduler = sched.load(args.scheduler, **lr_args)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    prefix = f"{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
+    prefix = f"trainings/{args.dataset}_{'kd' if args.kd else 'reg'}_{timestamp}"
     if args.name:
         prefix += f"_{args.name}"
 
