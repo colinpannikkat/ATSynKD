@@ -1,0 +1,1 @@
+python train.py -dataset tiny-imagenet -big -n -1 -lr 0.1 -batch 32 -epochs 100 -sgd -momentum 0.9 -weight_decay 1e-4 -augment -reducer -lr_args '{"factor" : 0.1, "patience":3}' -name base_sched_b32_e200_nosched_lr1_reduce_sgd
