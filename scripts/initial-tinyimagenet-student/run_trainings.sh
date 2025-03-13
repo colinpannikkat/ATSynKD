@@ -1,10 +1,10 @@
 #!/bin/bash
 
-dir="scripts/initial-tinyimagenet-teacher/"
+dir="scripts/initial-tinyimagenet-student/"
 
 # Array of training scripts
 # scripts=("train1.sh" "train2.sh" "train3.sh" "train4.sh" "train5.sh")
-scripts=("train15.sh")
+scripts=("train1.sh")
 
 # Run each script sequentially in the background
 for script in "${scripts[@]}"; do
