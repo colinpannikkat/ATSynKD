@@ -27,9 +27,9 @@ def evaluate(models, data, criterion, device, kd=False):
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                teacher_layers, teacher_out = out[0]
-                student_layers, student_out = out[1]
-                loss += criterion(teacher_layers, teacher_out, student_layers, student_out).item()
+                teacher_out = out[0][0]
+                student_out = out[1][0]
+                loss += criterion(out).item()
 
                 # Compute accuracy for student and teacher model pred
                 _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
@@ -37,7 +37,7 @@ def evaluate(models, data, criterion, device, kd=False):
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy += correct / labels.size(0)
             else:
-                _, output = out[0]
+                output = out[0][0]
                 loss += criterion(output, labels).item()
 
                 # Compute accuracy
@@ -89,9 +89,9 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
             # Forward pass
             out = [model(inputs) for model in models]
             if kd:
-                teacher_layers, teacher_out = out[0]
-                student_layers, student_out = out[1]
-                loss = criterion(teacher_layers, teacher_out, student_layers, student_out)
+                teacher_out = out[0][0]
+                student_out = out[1][0]
+                loss += criterion(out).item()
 
                 # Compute accuracy for student and teacher model pred
                 _, s_predicted = torch.max(F.softmax(student_out, dim=1), 1)
@@ -99,7 +99,7 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
                 correct = (s_predicted == t_predicted).sum().item()
                 accuracy = correct / labels.size(0)
             else:
-                _, output = out[0]
+                output = out[0][0]
                 loss = criterion(output, labels)
 
                 # Compute accuracy

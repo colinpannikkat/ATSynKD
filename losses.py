@@ -18,8 +18,10 @@ class AttentionAwareKDLoss(nn.Module):
         assert(llambda >= 0 and llambda <= 1)
         self.llambda = torch.tensor(llambda)
 
-    def forward(self, teacher_layers: list[Tensor], teacher_out: Tensor, 
-                      student_layers: list[Tensor], student_out: Tensor):
+    def forward(self, outputs: list[Tensor | list[Tensor]]):
+
+        teacher_out, teacher_layers = outputs[0]
+        student_out, student_layers = outputs[1]
         
         kl_div_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
