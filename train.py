@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from utils import Datasets, Schedulers, DataLoader, plot_metrics, save_metrics, save_parameters, save_checkpoint, load_checkpoint
-from losses import AttentionAwareKDLoss, KDLoss
+from losses import AttentionAwareKDLoss, KDLoss, EuclidAttentionAwareKDLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 import json
@@ -162,6 +162,7 @@ def main():
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
     parser.add_argument("-at", action='store_true', help="Train with attention aware distillation")
+    parser.add_argument("-euclidat", action='store_true', help="Train with euclidean attention aware distillation")
     parser.add_argument("-weights", help="Weights to use for teacher model with KD")
     parser.add_argument("-small", action='store_true', help="Train student model")
     parser.add_argument("-big", action='store_true', help="Train teacher model")
@@ -201,8 +202,10 @@ def main():
         models.append(teacher)
         models.append(student)
 
-        if (args.at):
+        if args.at:
             criterion = AttentionAwareKDLoss(llambda=args.llambda)
+        elif args.euclidat:
+            criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda)
         else:
             criterion = KDLoss(llambda=args.llambda)
     else:
