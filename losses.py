@@ -9,7 +9,7 @@ class AttentionAwareKDLoss(nn.Module):
 
     Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
     '''
-    def __init__(self, llambda: float = 0.5, *args, **kwargs):
+    def __init__(self, llambda: float = 0.99, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
@@ -45,7 +45,7 @@ class EuclidAttentionAwareKDLoss(nn.Module):
 
     Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
     '''
-    def __init__(self, llambda: float = 0.5, *args, **kwargs):
+    def __init__(self, llambda: float = 1e3, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
@@ -67,9 +67,7 @@ class EuclidAttentionAwareKDLoss(nn.Module):
             teacher = F.normalize(teacher, p=2)
             student = F.normalize(student, p=2)
 
-            at_loss += F.normalize((student - teacher), p=2)
-        
-        at_loss /= len(teacher_layers)
+            at_loss += torch.norm(student - teacher, p=2, dim=1).mean()
 
         ce_loss = self.ce(student_out, teacher_out.argmax(1))
 
@@ -83,7 +81,7 @@ class KDLoss(nn.Module):
     From Equation 1 of Black-box Few-shot Knowledge Distillation.
 
     '''
-    def __init__(self, llambda: float = 0.5, *args, **kwargs):
+    def __init__(self, llambda: float = 0.9, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.llambda = llambda
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)

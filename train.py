@@ -161,7 +161,7 @@ def main():
     parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'tiny-imagenet'], required=True)
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
-    parser.add_argument("-at", action='store_true', help="Train with attention aware distillation")
+    parser.add_argument("-klat", action='store_true', help="Train with attention aware distillation")
     parser.add_argument("-euclidat", action='store_true', help="Train with euclidean attention aware distillation")
     parser.add_argument("-weights", help="Weights to use for teacher model with KD")
     parser.add_argument("-small", action='store_true', help="Train student model")
@@ -202,7 +202,7 @@ def main():
         models.append(teacher)
         models.append(student)
 
-        if args.at:
+        if args.klat:
             criterion = AttentionAwareKDLoss(llambda=args.llambda)
         elif args.euclidat:
             criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda)
