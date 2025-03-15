@@ -290,10 +290,22 @@ class Schedulers():
         
         if self.warmup:
             warmup_period = kwargs.get('warmup_period', 10)
+            warmup_function = kwargs.get('warmup_function', 'linear')
+
+            linear_lambda = lambda epoch: epoch / warmup_period
+            quadratic_lambda = lambda epoch: (epoch / warmup_period) ** 2
+
+            warmup_lambda = None
+            if warmup_function == 'linear':
+                warmup_lambda = linear_lambda
+            elif warmup_function == 'quadratic':
+                warmup_lambda = quadratic_lambda
+
             warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 optimizer=self.optimizer,
-                lr_lambda=lambda epoch: epoch / warmup_period
+                lr_lambda=warmup_lambda
             )
+            
             if sched:
                 sched = torch.optim.lr_scheduler.SequentialLR(
                     optimizer=self.optimizer,
