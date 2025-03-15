@@ -9,21 +9,26 @@ class AttentionAwareKDLoss(nn.Module):
 
     Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
     '''
-    def __init__(self, llambda: float = 0.99, *args, **kwargs):
+    def __init__(self, llambda: float = 0.99, alpha: float = 0.9, factor: float = 0.01, total_epochs: int = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
+        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
         self.ce = torch.nn.CrossEntropyLoss()
+        self.kd = KDLoss(alpha=alpha)
 
         assert(llambda >= 0 and llambda <= 1)
         self.llambda = torch.tensor(llambda)
+        self.factor = factor
+        self.total_epochs = total_epochs
+
+        self.step_size = -(self.llambda / self.total_epochs)
 
     def forward(self, outputs: list[Tensor | list[Tensor]]):
 
         teacher_out, teacher_layers = outputs[0]
         student_out, student_layers = outputs[1]
         
-        kl_div_loss = 0
+        at_loss = 0
         for t_layer, s_layer in zip(teacher_layers, student_layers):
 
             teacher = t_layer.flatten(start_dim=1)
@@ -32,11 +37,14 @@ class AttentionAwareKDLoss(nn.Module):
             # teacher = F.normalize(teacher, p=2)
             # student = F.normalize(student, p=2)
 
-            kl_div_loss += self.kl_div(F.log_softmax(student, dim=1), F.softmax(teacher, dim=1))
+            at_loss += self.kl_div(F.log_softmax(student, dim=1), F.log_softmax(teacher, dim=1))
 
-        ce_loss = self.ce(student_out, teacher_out.argmax(dim=1))
+        ce_loss = self.kd([[teacher_out], [student_out]])
 
-        return (1 - self.llambda) * kl_div_loss + (self.llambda) * ce_loss
+        return (1 - self.llambda) * at_loss + (self.llambda) * ce_loss
+    
+    def step(self):
+        self.llambda += self.step_size
     
 class EuclidAttentionAwareKDLoss(nn.Module):
     '''
@@ -48,9 +56,7 @@ class EuclidAttentionAwareKDLoss(nn.Module):
     def __init__(self, llambda: float = 1e3, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
-
         self.llambda = torch.tensor(llambda)
 
     def forward(self, outputs: list[Tensor | list[Tensor]]):
@@ -81,9 +87,9 @@ class KDLoss(nn.Module):
     From Equation 1 of Black-box Few-shot Knowledge Distillation.
 
     '''
-    def __init__(self, llambda: float = 0.9, *args, **kwargs):
+    def __init__(self, alpha: float = 0.9, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.llambda = llambda
+        self.alpha = alpha
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
 
@@ -101,7 +107,7 @@ class KDLoss(nn.Module):
         hard_label = teacher_out.argmax(dim=1)
         ce_loss = self.ce(student_out, hard_label)
 
-        return self.llambda * kl_div_loss + (1.0 - self.llambda) * ce_loss
+        return self.alpha * kl_div_loss + (1.0 - self.alpha) * ce_loss
     
 def kl_divergence(mu, logvar):
     return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
