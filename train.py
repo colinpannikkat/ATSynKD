@@ -49,7 +49,7 @@ def evaluate(models, data, criterion, device, kd=False):
 
 def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader: DataLoader, 
           optimizer, criterion, device, kd=False, scheduler=None, num_epochs=30, prefix=".",
-          checkpoint=None):
+          step_llambda=False, checkpoint=None):
     
     best_val_loss = (10e12, 0, 0) # storing val_loss, acc, and epoch number
     # Some lists for book-keeping for plotting later
@@ -125,6 +125,9 @@ def train(models: list[nn.Module], train_dataloader: DataLoader, test_dataloader
 
         if reduce_scheduler is not None:
             reduce_scheduler.step(val_loss)
+
+        if step_llambda is not None:
+            criterion.step()
                 
         losses.append(running_loss/len(train_dataloader))
         accs.append(running_acc/len(train_dataloader))
@@ -173,7 +176,9 @@ def main():
     parser.add_argument("-sgd", action="store_true", help="Use SGD optimizer instead of AdamW.")
     parser.add_argument("-eps", default=1e-8, type=float, help="AdamW epsilon hyperpam")
     parser.add_argument("-epochs", default=30, type=int)
-    parser.add_argument("-llambda", default=0.9, type=float, help="Tradeoff term between CE and KD Loss terms. Larger places more weight on CE. See losses.py.")
+    parser.add_argument("-llambda", default=0.99, type=float, help="Tradeoff term between AT and KD Loss terms. Larger places more weight on CE. See losses.py.")
+    parser.add_argument("-factor", default=None)
+    parser.add_argument("-alpha", default=0.9, type=float, help="Tradeoff term between CE and KL terms in KD loss.")
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true', help="Enable warmup")
     parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
@@ -203,11 +208,14 @@ def main():
         models.append(student)
 
         if args.klat:
-            criterion = AttentionAwareKDLoss(llambda=args.llambda)
+            criterion = AttentionAwareKDLoss(llambda=args.llambda, 
+                                             alpha=args.alpha, 
+                                             factor=args.factor,
+                                             total_epochs=args.epochs)
         elif args.euclidat:
             criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda)
         else:
-            criterion = KDLoss(llambda=args.llambda)
+            criterion = KDLoss(alpha=args.alpha)
     else:
         model = None
         if args.big:
@@ -256,7 +264,8 @@ def main():
                                                                        num_epochs=args.epochs, 
                                                                        kd=args.kd, 
                                                                        scheduler=scheduler,
-                                                                       prefix=prefix)
+                                                                       prefix=prefix,
+                                                                       step_llambda=args.factor)
 
     plot_metrics(train_accs, train_losses, val_accs, val_losses, out=f"{prefix}/metrics.png")
     if args.kd:
