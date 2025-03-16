@@ -3,8 +3,8 @@
 dir="scripts/ssimkd-tinyimagenet/"
 
 # Array of training scripts
-scripts=("train1.sh")
-scripts=("train2.sh" "train3.sh" "train4.sh")
+# scripts=("train5.sh")
+scripts=("train6.sh" "train7.sh" "train8.sh")
 
 # Run each script sequentially in the background
 for script in "${scripts[@]}"; do
