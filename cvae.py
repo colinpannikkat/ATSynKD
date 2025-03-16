@@ -1,13 +1,15 @@
-from models import CVAE
+from models import CVAE, ResCVAE
 import torch
 import torch.nn.functional as F
 from utils import Datasets
 from losses import elbo_loss
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-device = torch.device('mps')
+device = torch.device('cuda')
 
-cvae = CVAE(input_dim=3*32*32, latent_dim=20, output_dim=3*32*32, num_classes=10)  # Example for MNIST
+# cvae = CVAE(input_dim=3*32*32, latent_dim=20, output_dim=3*32*32, num_classes=10)  # Example for MNIST
+cvae = ResCVAE(num_classes=100)
 cvae = cvae.to(device)
 optimizer = torch.optim.Adam(cvae.parameters(), lr=1e-3)
 
@@ -19,15 +21,16 @@ latent_dim = 20
 optimizer_soft = torch.optim.Adam(cvae.parameters(), lr=1e-3)
 
 # Get data
-train_data, test_data = Datasets().load_cifar10(batch_size=256)
+train_data, test_data = Datasets().load_cifar100(batch_size=256)
 
 print("Training with soft labels:")
-for epoch in range(num_epochs):
+for epoch in tqdm(range(num_epochs)):
     for x_batch, y_batch in train_data:
         x_batch = x_batch.to(device)
         y_batch = y_batch.to(device)
 
-        y_hard = F.one_hot(torch.tensor(y_batch), num_classes=num_classes).float().to(device)  # Get soft labels from CNN
+        # y_hard = F.one_hot(torch.tensor(y_batch), num_classes=num_classes).float().to(device)  # Get soft labels from CNN
+        y_hard = y_batch
 
         x_recon, mu, logvar = cvae(x_batch, y_hard)
         loss, recon_loss, kl_loss = elbo_loss(x_batch, x_recon, mu, logvar)

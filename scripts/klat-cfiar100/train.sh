@@ -1,0 +1,1 @@
+python train.py -dataset cifar100 -kd -klat -llambda 0.9 -weights cifar100_teacher.pt -n 50 -lr 0.1 -batch 128 -epochs 200 -weight_decay 1e-4 -augment -warmup -reducer -lr_args '{"warmup_function" : "quadratic"}'
