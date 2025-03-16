@@ -4,7 +4,7 @@ dir="scripts/atkd-tinyimagenet/"
 
 # Array of training scripts
 # scripts=("train4.sh" "train5.sh" "train6.sh")
-scripts=("train7.sh")
+scripts=("train13.sh")
 
 # Run each script sequentially in the background
 for script in "${scripts[@]}"; do

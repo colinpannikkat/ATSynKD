@@ -6,7 +6,7 @@ from losses import elbo_loss
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-device = torch.device('cuda')
+device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
 
 # cvae = CVAE(input_dim=3*32*32, latent_dim=20, output_dim=3*32*32, num_classes=10)  # Example for MNIST
 cvae = ResCVAE(num_classes=100)
@@ -18,7 +18,7 @@ num_classes = 10  # Adjust as needed
 latent_dim = 20
 
 # Training loop with soft labels
-optimizer_soft = torch.optim.Adam(cvae.parameters(), lr=1e-3)
+optimizer_soft = torch.optim.AdamW(cvae.parameters(), lr=1e-3)
 
 # Get data
 train_data, test_data = Datasets().load_cifar100(batch_size=256)
@@ -61,4 +61,4 @@ with torch.no_grad():
         axes[i].set_title(f"Hard Class {i}")
         axes[i].axis('off')
 
-plt.show()
+plt.savefig("./")

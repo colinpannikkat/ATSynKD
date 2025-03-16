@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from utils import Datasets, Schedulers, DataLoader, plot_metrics, save_metrics, save_parameters, save_checkpoint, load_checkpoint
-from losses import AttentionAwareKDLoss, KDLoss, EuclidAttentionAwareKDLoss
+from losses import KLAttentionAwareKDLoss, KDLoss, EuclidAttentionAwareKDLoss, SSIMAttentionAwareNMLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 import json
@@ -166,6 +166,7 @@ def main():
     parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
     parser.add_argument("-klat", action='store_true', help="Train with attention aware distillation")
     parser.add_argument("-euclidat", action='store_true', help="Train with euclidean attention aware distillation")
+    parser.add_argument("-ssimat", action='store_true', help="Train with distance metric derived from the SSIM for computing attention distances.")
     parser.add_argument("-weights", help="Weights to use for teacher model with KD")
     parser.add_argument("-small", action='store_true', help="Train student model")
     parser.add_argument("-big", action='store_true', help="Train teacher model")
@@ -208,12 +209,17 @@ def main():
         models.append(student)
 
         if args.klat:
-            criterion = AttentionAwareKDLoss(llambda=args.llambda, 
+            criterion = KLAttentionAwareKDLoss(llambda=args.llambda, 
                                              alpha=args.alpha, 
                                              factor=args.factor,
                                              total_epochs=args.epochs)
         elif args.euclidat:
             criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda)
+        elif args.ssimat:
+            criterion = SSIMAttentionAwareNMLoss(llambda=args.llambda,
+                                                 alpha=args.alpha,
+                                                 factor=args.factor,
+                                                 total_epochs=args.epochs)
         else:
             criterion = KDLoss(alpha=args.alpha)
     else:
