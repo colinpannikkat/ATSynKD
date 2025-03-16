@@ -116,40 +116,138 @@ def load_resnet20(dataset: str, weights = None) -> ResNetAT:
                 model_resnet20.load_state_dict(weights['model_state_dict'])
 
     return model_resnet20
+
+class ResDown(nn.Module):
+    """
+    Residual down sampling block for the encoder
+    """
+    def __init__(self, channel_in, channel_out, kernel_size=3):
+        super(ResDown, self).__init__()
+        self.conv1 = nn.Conv2d(channel_in, channel_out // 2, kernel_size, 2, kernel_size // 2)
+        self.bn1   = nn.BatchNorm2d(channel_out // 2, eps=1e-4)
+        self.conv2 = nn.Conv2d(channel_out // 2, channel_out, kernel_size, 1, kernel_size // 2)
+        self.bn2   = nn.BatchNorm2d(channel_out, eps=1e-4)
+        self.conv3 = nn.Conv2d(channel_in, channel_out, kernel_size, 2, kernel_size // 2)
+        self.act_fnc = nn.ELU()
+
+    def forward(self, x):
+        skip = self.conv3(x)
+        x = self.act_fnc(self.bn1(self.conv1(x)))
+        x = self.conv2(x)
+        return self.act_fnc(self.bn2(x + skip))
+
+
+class ResUp(nn.Module):
+    """
+    Residual up sampling block for the decoder
+    """
+    def __init__(self, channel_in, channel_out, kernel_size=3, scale_factor=2):
+        super(ResUp, self).__init__()
+        self.conv1 = nn.Conv2d(channel_in, channel_in // 2, kernel_size, 1, kernel_size // 2)
+        self.bn1   = nn.BatchNorm2d(channel_in // 2, eps=1e-4)
+        self.conv2 = nn.Conv2d(channel_in // 2, channel_out, kernel_size, 1, kernel_size // 2)
+        self.bn2   = nn.BatchNorm2d(channel_out, eps=1e-4)
+        self.conv3 = nn.Conv2d(channel_in, channel_out, kernel_size, 1, kernel_size // 2)
+        self.up_nn = nn.Upsample(scale_factor=scale_factor, mode="nearest")
+        self.act_fnc = nn.ELU()
+
+    def forward(self, x):
+        x = self.up_nn(x)
+        skip = self.conv3(x)
+        x = self.act_fnc(self.bn1(self.conv1(x)))
+        x = self.conv2(x)
+        return self.act_fnc(self.bn2(x + skip))
     
 class ResEncoder(nn.Module):
-    def __init__(self, input_channels, latent_dim, condition_size):
-        super(Encoder, self).__init__()
-        pass
+    '''
+    Encoder block
 
-    def forward(self, x, y_soft):
-       pass
+    Built for a 3x32x32 image and will result in a latent vector of size z x 1 x 1
+    As the network is fully convolutional it will work for images LARGER than 32
+    For images sized 32 * n where n is a power of 2, (1, 2, 4, 8 etc) the latent feature map size will be z x n x n
 
-class ResDecoder(nn.Module):
-    def __init__(self, latent_dim, output_channels, condition_size):
-        super(Decoder, self).__init__()
-        pass
+    '''
+    def __init__(self, channels, ch=64, latent_channels=512, num_classes=10):
+        super(ResEncoder, self).__init__()
+        self.label_embedding = nn.Embedding(num_classes, num_classes)
 
-    def forward(self, z, y_soft):
-        pass
+        self.conv_in = nn.Conv2d(channels + num_classes, ch, 7, 1, 3)
 
-class ResCVAE(nn.Module):
-    def __init__(self, input_dim, latent_dim, output_dim, condition_size):
-        super(ResCVAE, self).__init__()
-        self.encoder = ResEncoder(input_dim, latent_dim, condition_size)
-        self.decoder = ResDecoder(latent_dim, output_dim, condition_size)
+        self.res_down_block1 = ResDown(ch, 2 * ch)
+        self.res_down_block2 = ResDown(2 * ch, 4 * ch)
+        self.res_down_block3 = ResDown(4 * ch, 8 * ch)
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
+        self.conv_mu = nn.Conv2d(8 * ch, latent_channels, 4, 1)
+        self.conv_log_var = nn.Conv2d(8 * ch, latent_channels, 4, 1)
+
+        self.act_fnc = nn.ELU()
+
+    def sample(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x, y_soft):
-        mu, logvar = self.encoder(x, y_soft)
-        z = self.reparameterize(mu, logvar)
-        x_recon = self.decoder(z, y_soft)
-        return x_recon, mu, logvar
-    
+    def forward(self, x, y):
+        label_emb = self.label_embedding(y)
+        label_emb = label_emb.unsqueeze(-1).unsqueeze(-1)
+        label_emb = label_emb.expand(-1, -1, x.size(2), x.size(3))
+        
+        x = torch.cat([x, label_emb], dim=1)
+        x = self.act_fnc(self.conv_in(x))
+        x = self.res_down_block1(x)
+        x = self.res_down_block2(x)
+        x = self.res_down_block3(x)
+
+        mu = self.conv_mu(x)
+        log_var = self.conv_log_var(x)
+
+        if self.training:
+            x = self.sample(mu, log_var)
+        else:
+            x = mu
+        return x, mu, log_var
+
+class ResDecoder(nn.Module):
+    def __init__(self, channels, ch=64, latent_channels=512, num_classes=10):
+        super(ResDecoder, self).__init__()
+        self.label_embedding = nn.Embedding(num_classes, num_classes)
+
+        # ConvTranspose receives latent_channels + num_classes channels.
+        self.conv_t_up = nn.ConvTranspose2d(latent_channels + num_classes, ch * 8, 4, 1)
+
+        self.res_up_block1 = ResUp(ch * 8, ch * 4)
+        self.res_up_block2 = ResUp(ch * 4, ch * 2)
+        self.res_up_block3 = ResUp(ch * 2, ch)
+
+        self.conv_out = nn.Conv2d(ch, channels, 3, 1, 1)
+        self.act_fnc = nn.ELU()
+
+    def forward(self, z, y):
+        label_emb = self.label_embedding(y)
+        label_emb = label_emb.unsqueeze(-1).unsqueeze(-1)
+        label_emb = label_emb.expand(-1, -1, z.size(2), z.size(3))
+
+        x = torch.cat([z, label_emb], dim=1)
+        x = self.act_fnc(self.conv_t_up(x))
+
+        x = self.res_up_block1(x)
+        x = self.res_up_block2(x)
+        x = self.res_up_block3(x)
+
+        x = torch.tanh(self.conv_out(x))
+        return x
+
+class ResCVAE(nn.Module):
+    def __init__(self, channel_in=3, ch=64, latent_channels=512, num_classes=10):
+        super(ResCVAE, self).__init__()
+        self.encoder = ResEncoder(channels=channel_in, ch=ch, latent_channels=latent_channels, num_classes=num_classes)
+        self.decoder = ResDecoder(channels=channel_in, ch=ch, latent_channels=latent_channels, num_classes=num_classes)
+
+    def forward(self, x, y):
+        encoding, mu, log_var = self.encoder(x, y)
+        recon_img = self.decoder(encoding, y)
+        return recon_img, mu, log_var
+
 class Encoder(nn.Module):
     def __init__(self, input_dim, latent_dim, num_classes):
         super(Encoder, self).__init__()
