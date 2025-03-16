@@ -1,11 +1,12 @@
 import torch
 from tqdm import tqdm
 from utils import Datasets, Schedulers
-from losses import AttentionAwareKDLoss
+from losses import KLAttentionAwareKDLoss, SSIMAttentionAwareNMLoss, EuclidAttentionAwareKDLoss, KDLoss
 from models import load_resnet20, load_resnet32
 from argparse import ArgumentParser
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler
+import json
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -48,7 +49,20 @@ def train(config, checkpoint_dir=None):
         student.to(device)
         models.append(teacher)
         models.append(student)
-        criterion = AttentionAwareKDLoss(llambda=config["llambda"])
+        if config["klat"]:
+            criterion = KLAttentionAwareKDLoss(llambda=config["llambda"], 
+                       alpha=config["alpha"], 
+                       factor=config["factor"],
+                       total_epochs=config["epochs"])
+        elif config["euclidat"]:
+            criterion = EuclidAttentionAwareKDLoss(llambda=config["llambda"])
+        elif config["ssimat"]:
+            criterion = SSIMAttentionAwareNMLoss(llambda=config["llambda"],
+                     alpha=config["alpha"],
+                     factor=config["factor"],
+                     total_epochs=config["epochs"])
+        else:
+            criterion = KDLoss(alpha=config["alpha"])
     else:
         model = load_resnet32(config["dataset"]) if config["big"] else load_resnet20(config["dataset"])
         model = model.to(device)
@@ -56,15 +70,19 @@ def train(config, checkpoint_dir=None):
         criterion = nn.CrossEntropyLoss()
 
     params = models[1].parameters() if config["kd"] else models[0].parameters()
-    optimizer = torch.optim.AdamW(params, lr=config["lr"], weight_decay=config["weight_decay"], eps=config["eps"])
+    if config["sgd"]:
+        optimizer = torch.optim.SGD(params, lr=config["lr"], weight_decay=config["weight_decay"], momentum=config["momentum"])
+    else:
+        optimizer = torch.optim.AdamW(params, lr=config["lr"], weight_decay=config["weight_decay"], eps=config["eps"])
 
     data = Datasets(seed=seed)
     trainset, testset = data.load(dataset=config["dataset"], n=config["n"], batch_size=config["batch"], augment=config["augment"], synth=config["synth"])
+    config['lr_args']['len_train_loader'] = len(trainset)
 
     scheduler = None
     if config["scheduler"] or config["reducer"]:
         sched = Schedulers(optimizer, warmup=config["warmup"], reducer=config["reducer"])
-        scheduler = sched.load(config["scheduler"], total_epochs=config["epochs"], len_train_loader=len(trainset))
+        scheduler = sched.load(config["scheduler"], total_epochs=config["epochs"], **config['lr_args'])
     
     if isinstance(scheduler, tuple):
         scheduler, reduce_scheduler = scheduler
@@ -113,57 +131,60 @@ def main():
     parser.add_argument("-dataset", choices=['cifar10', 'cifar100', 'tiny-imagenet'], required=True)
     parser.add_argument("-n", default=-1, type=int)
     parser.add_argument("-kd", action='store_true', help="Train with knowledge distillation")
+    parser.add_argument("-klat", action='store_true', help="Train with attention aware distillation")
+    parser.add_argument("-euclidat", action='store_true', help="Train with euclidean attention aware distillation")
+    parser.add_argument("-ssimat", action='store_true', help="Train with distance metric derived from the SSIM for computing attention distances.")
     parser.add_argument("-weights", help="Weights to use for teacher model with KD")
     parser.add_argument("-small", action='store_true', help="Train student model")
     parser.add_argument("-big", action='store_true', help="Train teacher model")
-    parser.add_argument("-batch", default=128, type=int)
+    parser.add_argument("-batch", default=128, type=int) # need to add different batch sizes for train and test
     parser.add_argument("-lr", default=1e-2, type=float)
-    parser.add_argument("-weight_decay", default=1e-2, type=float, help="AdamW weight decay")
+    parser.add_argument("-weight_decay", default=1e-2, type=float, help="AdamW/SGD weight decay")
+    parser.add_argument("-momentum", default=0.9, type=float, help="Momentum for SGD optimizer")
+    parser.add_argument("-sgd", action="store_true", help="Use SGD optimizer instead of AdamW.")
     parser.add_argument("-eps", default=1e-8, type=float, help="AdamW epsilon hyperpam")
     parser.add_argument("-epochs", default=30, type=int)
-    parser.add_argument("-llambda", default=0.1, type=float, help="Tradeoff term between CE and AT Loss")
+    parser.add_argument("-llambda", default=0.99, type=float, help="Tradeoff term between AT and KD Loss terms. Larger places more weight on CE. See losses.py.")
+    parser.add_argument("-factor", default=None)
+    parser.add_argument("-alpha", default=0.9, type=float, help="Tradeoff term between CE and KL terms in KD loss.")
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true', help="Enable warmup")
     parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
-    parser.add_argument("-synth", default=None, type=int, help="Desired dataset size, will generate M - N synthetic images")
+    parser.add_argument("-synth", default=None, type=int, help="Desired number of synthetic images, will generate M synthetic images")
     parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
-    parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{\"start_factor\":0.5, \"warmup_period\":5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
+    parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
+    parser.add_argument("-name", help="Designate name of training for out file", default=None)
     args = parser.parse_args()
 
-    def generate_milestones(config):
-        return [int(config['epochs'] * 0.3), int(config['epochs'] * 0.6), int(config['epochs'] * 0.9)]
+    lr_args = json.loads(args.lr_args)
+    lr_args['total_epochs'] = args.epochs
 
     config = {
         "dataset": args.dataset,
         "n": args.n,
         "kd": args.kd,
+        "klat": args.klat,
+        "euclidat": args.euclidat,
+        "ssimat": args.ssimat,
         "weights": args.weights,
         "small": args.small,
         "big": args.big,
-        "batch": tune.choice([64, 128, 256]),
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.loguniform(1e-4, 1e-2),
-        "eps": tune.loguniform(1e-8, 1e-6),
-        "epochs": tune.choice([10, 20, 30, 40, 50]),
-        "llambda": tune.uniform(0.01, 0.1),
-        "scheduler": tune.choice(['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle']),
+        "batch": args.batch,
+        "lr": args.lr,
+        "weight_decay": args.weight_decay,
+        "momentum" : args.momentum,
+        "sgd": args.sgd,
+        "eps": args.eps,
+        "epochs": args.epochs,
+        "llambda": tune.uniform(0.00, 1.),
+        "factor" : args.factor,
+        "alpha" : tune.uniform(0.00, 1.),
+        "scheduler": args.scheduler,
         "warmup": args.warmup,
         "reducer": args.reducer,
         "synth": args.synth,
         "augment": args.augment,
-        "lr_args": {
-            "start_factor": tune.uniform(0.1, 0.5),
-            "end_factor": tune.uniform(0.5, 1.0),
-            "total_iters": tune.choice([5, 10, 20]),
-            "warmup_period": tune.choice([5, 10, 15]),
-            "constant_epochs": tune.choice([5, 10]),
-            "factor": tune.uniform(0.1, 0.5),
-            "milestones": tune.sample_from(generate_milestones),
-            "gamma": tune.uniform(0.1, 0.5),
-            "max_lr": tune.loguniform(1e-4, 1e-2),
-            "steps_per_epoch": tune.choice([100, 200, 300]),
-            "pct_start": tune.uniform(0.1, 0.3)
-        }
+        "lr_args": lr_args
     }
 
     scheduler = ASHAScheduler(
