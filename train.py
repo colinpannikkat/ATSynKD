@@ -183,7 +183,7 @@ def main():
     parser.add_argument("-scheduler", choices=['constant+multistep', 'lineardecay', 'constant', 'linear', 'multistep', 'onecycle'], default=None, type=str)
     parser.add_argument("-warmup", action='store_true', help="Enable warmup")
     parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
-    parser.add_argument("-synth", default=None, type=int, help="Desired dataset size, will generate M - N synthetic images")
+    parser.add_argument("-synth", default=None, type=int, help="Desired number of synthetic images, will generate M synthetic images")
     parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
     parser.add_argument("-name", help="Designate name of training for out file", default=None)
