@@ -82,7 +82,7 @@ def train(config, checkpoint_dir=None):
     scheduler = None
     if config["scheduler"] or config["reducer"]:
         sched = Schedulers(optimizer, warmup=config["warmup"], reducer=config["reducer"])
-        scheduler = sched.load(config["scheduler"], total_epochs=config["epochs"], **config['lr_args'])
+        scheduler = sched.load(config["scheduler"], **config['lr_args'])
     
     if isinstance(scheduler, tuple):
         scheduler, reduce_scheduler = scheduler
