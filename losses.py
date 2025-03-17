@@ -33,8 +33,8 @@ class KLAttentionAwareKDLoss(nn.Module):
             teacher = t_layer.flatten(start_dim=1)
             student = s_layer.flatten(start_dim=1)
 
-            # teacher = F.normalize(teacher, p=2)
-            # student = F.normalize(student, p=2)
+            teacher = F.normalize(teacher, p=1)
+            student = F.normalize(student, p=1)
 
             at_loss += self.kl_div(F.log_softmax(student, dim=1), F.log_softmax(teacher, dim=1))
 
