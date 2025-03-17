@@ -216,7 +216,8 @@ def main():
                                              factor=args.factor,
                                              total_epochs=args.epochs)
         elif args.euclidat:
-            criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda)
+            criterion = EuclidAttentionAwareKDLoss(llambda=args.llambda,
+                                                   alpha=args.alpha)
         elif args.ssimat:
             criterion = SSIMAttentionAwareNMLoss(llambda=args.llambda,
                                                  alpha=args.alpha,
