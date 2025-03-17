@@ -56,7 +56,7 @@ class Datasets():
 
         return train, test
     
-    def _generate_synth(self, train: DataLoader, test: DataLoader, m: int):
+    def _generate_synth(self, train: DataLoader, m: int):
         raise(NotImplementedError)
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
@@ -86,12 +86,17 @@ class Datasets():
         sampled_subset = Subset(dataset, sampled_indices)
         return DataLoader(sampled_subset, batch_size=batch_size, shuffle=True) 
 
-    def load_mnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_mnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
-            v2.ToTensor(),
-            v2.Normalize((0.1307,), (0.3081,))
+            v2.Resize(32),
+            v2.ToTensor()
         ])
-        if augment: transform = self._apply_augmentation(transform, 28)
+        if normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.1307,), (0.3081,))
+            ])
+        if augment: transform = self._apply_augmentation(transform, 32)
         trainset = MNIST(out_dir, train=True, download=True, transform=transform)
         testset = MNIST(out_dir, train=False, download=True, transform=transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
@@ -120,11 +125,15 @@ class Datasets():
 
         return train_dataloader, test_dataloader
 
-    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
-            v2.ToTensor(),
-            v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            v2.ToTensor()
         ])
+        if normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ])
         testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
         trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
@@ -137,11 +146,15 @@ class Datasets():
 
         return train_dataloader, test_dataloader
 
-    def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
-            v2.ToTensor(),
-            v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+            v2.ToTensor()
         ])
+        if normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+            ])
         testset = CIFAR100(out_dir, train=False, download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 32)
         trainset = CIFAR100(out_dir, train=True, download=True, transform=transform)
@@ -154,13 +167,17 @@ class Datasets():
 
         return train_dataloader, test_dataloader
     
-    def load_imagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_imagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
             v2.Resize(256),
             v2.CenterCrop(224),
-            v2.ToTensor(),
-            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            v2.ToTensor()
         ])
+        if normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            ])
         testset = ImageNet(out_dir, split='val', download=True, transform=transform)
         if augment: transform = self._apply_augmentation(transform, 224)
         trainset = ImageNet(out_dir, split='train', download=True, transform=transform)
