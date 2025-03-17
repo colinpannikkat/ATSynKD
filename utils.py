@@ -264,12 +264,14 @@ class Datasets():
             v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
         ])
         transform = v2.Compose([
-            train_transform,
             v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
         ])
         if augment: transform = self._apply_augmentation(transform, 64)
         if not wait_transform:
-            train_transform = transform
+            train_transform = v2.Compose([
+                train_transform,
+                transform
+            ])
         testset = CIFAR100(out_dir, train=False, download=True, transform=test_transform)
         trainset = CIFAR100(out_dir, train=True, download=True, transform=train_transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
@@ -314,12 +316,14 @@ class Datasets():
             v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
         transform = v2.Compose([
-            train_transform,
             v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
         if augment: transform = self._apply_augmentation(transform, 64)
         if not wait_transform:
-            train_transform = transform
+            train_transform = v2.Compose([
+                train_transform,
+                transform
+            ])
 
         if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
             import urllib.request
