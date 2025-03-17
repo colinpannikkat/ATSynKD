@@ -11,7 +11,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.ba
 
 num_epochs = 600
 num_classes = 100  # Adjust as needed
-latent_dim = 30
+latent_dim = 3
 batch=64
 beta=1
 image_shape = (3, 32, 32)
@@ -22,14 +22,14 @@ cvae = CVAE(
     image_shape=image_shape
 )
 cvae = cvae.to(device)
-optimizer = torch.optim.Adam(cvae.parameters(), lr=1e-3, weight_decay=5e-4)
+optimizer = torch.optim.Adam(cvae.parameters(), lr=1e-3)
 criterion = ELBOLoss(beta=beta, reduction='sum')
 scheduler = None
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=50, min_lr=1e-12)
 # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [200, 400], gamma=0.1)
 
 # Get data
-train_data, test_data = Datasets().load_cifar100(batch_size=batch, n=50, normalize=False)
+train_data, test_data, _ = Datasets().load_cifar100(batch_size=batch, n=50, wait_transform=True)
 
 best_model = (None, float('inf'), None)  # (model_state_dict, best_loss, epoch)
 
