@@ -5,7 +5,7 @@ import torchvision
 from torchvision.datasets import CIFAR10, CIFAR100, ImageNet, MNIST, FashionMNIST, VisionDataset
 from torchvision import transforms
 from torchvision.transforms import v2
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset, DataLoader, Dataset
 from random import sample
 import matplotlib.pyplot as plt
 import os
@@ -36,28 +36,33 @@ class Datasets():
         torch.manual_seed(seed) # used for fetching random subset of data for few sample
 
     def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: int = None, cvae: str = None, beta: float = 0.05) -> tuple[DataLoader, DataLoader]:
+        
+        wait_transform = False
+        if synth:
+            wait_transform = True
+            
         match dataset:
             case "mnist":
-                train, test = self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "fashionmnist":
-                train, test = self.load_fashionmnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_fashionmnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "cifar10":
-                train, test = self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "cifar100":
-                train, test = self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir, augment=augment, wait_transform=wait_transform)
             case "imagenet":
-                train, test = self.load_imagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_imagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "tiny-imagenet":
-                train, test = self.load_tinyimagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_tinyimagenet(n, batch_size=batch_size, out_dir=out_dir, augment=augment, wait_transform=wait_transform)
             case _:
                 raise ValueError(f"Dataset {dataset} is not supported.")
         
         if synth:
-            train, test = self._generate_synth(train, test, synth, beta, cvae)
+            train, test = self._generate_synth(train, test, transform, synth, beta, cvae)
 
         return train, test
 
-    def _generate_synth(self, train: DataLoader, test: DataLoader, m: int, beta: float = 0.05, cvae: str = None):
+    def _generate_synth(self, train: DataLoader, test: DataLoader, transform, m: int, beta: float = 0.05, cvae: str = None):
         """
         Generates synthetic mixup images and updates the training DataLoader.
 
@@ -139,7 +144,7 @@ class Datasets():
             train_labels = torch.cat([train_labels, ycvae], dim=0)
 
         # Update the DataLoader
-        combined_dataset = torch.utils.data.TensorDataset(train_images, train_labels)
+        combined_dataset = TensorDatasetWithTransform(train_images, train_labels, transform=transform)
         combined_loader = DataLoader(combined_dataset, batch_size=train.batch_size, shuffle=True)
 
         return combined_loader, test
@@ -171,19 +176,23 @@ class Datasets():
         sampled_subset = Subset(dataset, sampled_indices)
         return DataLoader(sampled_subset, batch_size=batch_size, shuffle=True) 
 
-    def load_mnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
+    def load_mnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_normalize: bool = False) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
             v2.Resize(32),
             v2.ToTensor()
         ])
-        if normalize:
+        test_transform = v2.Compose([
+            transform,
+            v2.Normalize((0.1307,), (0.3081,))
+        ])
+        if wait_normalize:
             transform = v2.Compose([
                 transform,
                 v2.Normalize((0.1307,), (0.3081,))
             ])
-        if augment: transform = self._apply_augmentation(transform, 32)
+            if augment: transform = self._apply_augmentation(transform, 32)
         trainset = MNIST(out_dir, train=True, download=True, transform=transform)
-        testset = MNIST(out_dir, train=False, download=True, transform=transform)
+        testset = MNIST(out_dir, train=False, download=True, transform=test_transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
@@ -191,36 +200,50 @@ class Datasets():
         else:
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, transform
 
-    def load_fashionmnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_fashionmnist(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_normalize: bool = False) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
-            v2.ToTensor(),
-            v2.Normalize((0.5,), (0.5,))
-        ])
-        testset = FashionMNIST(out_dir, train=False, download=True, transform=transform)
-        if augment: transform = self._apply_augmentation(transform, 28)
-        trainset = FashionMNIST(out_dir, train=True, download=True, transform=transform)
-        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
-
-        if n != -1:
-            train_dataloader = self._get_n_labels(n, trainset, batch_size)
-        else:
-            train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
-
-        return train_dataloader, test_dataloader
-
-    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
-        transform = v2.Compose([
+            v2.Resize(32),
             v2.ToTensor()
         ])
-        if normalize:
+        test_transform = v2.Compose([
+            transform,
+            v2.Normalize((0.5,), (0.5,))
+        ])
+        if wait_normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.5,), (0.5,))
+            ])
+            if augment: transform = self._apply_augmentation(transform, 32)
+        trainset = FashionMNIST(out_dir, train=True, download=True, transform=transform)
+        testset = FashionMNIST(out_dir, train=False, download=True, transform=test_transform)
+        test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+
+        if n != -1:
+            train_dataloader = self._get_n_labels(n, trainset, batch_size)
+        else:
+            train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+
+        return train_dataloader, test_dataloader, transform
+
+    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True, wait_normalize: bool = False) -> tuple[DataLoader, DataLoader]:
+        transform = v2.Compose([
+            v2.Resize(32),
+            v2.ToTensor()
+        ])
+        test_transform = v2.Compose([
+            transform,
+            v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        ])
+        if wait_normalize:
             transform = v2.Compose([
                 transform,
                 v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
             ])
-        testset = CIFAR10(out_dir, train=False, download=True, transform=transform)
-        if augment: transform = self._apply_augmentation(transform, 32)
+            if augment: transform = self._apply_augmentation(transform, 32)
+        testset = CIFAR10(out_dir, train=False, download=True, transform=test_transform)
         trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
@@ -229,20 +252,26 @@ class Datasets():
         else:
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, transform
 
-    def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
-        transform = v2.Compose([
+    def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
+        train_transform = v2.Compose([
+            v2.Resize(64),
             v2.ToTensor()
         ])
-        if normalize:
-            transform = v2.Compose([
-                transform,
-                v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
-            ])
-        testset = CIFAR100(out_dir, train=False, download=True, transform=transform)
-        if augment: transform = self._apply_augmentation(transform, 32)
-        trainset = CIFAR100(out_dir, train=True, download=True, transform=transform)
+        test_transform = v2.Compose([
+            train_transform,
+            v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+        ])
+        transform = v2.Compose([
+            train_transform,
+            v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+        ])
+        if augment: transform = self._apply_augmentation(transform, 64)
+        if not wait_transform:
+            train_transform = transform
+        testset = CIFAR100(out_dir, train=False, download=True, transform=test_transform)
+        trainset = CIFAR100(out_dir, train=True, download=True, transform=train_transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
@@ -250,7 +279,7 @@ class Datasets():
         else:
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, transform
     
     def load_imagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
@@ -273,19 +302,25 @@ class Datasets():
         else:
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, transform
     
-    def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
-        transform = v2.Compose([
+    def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
+        train_transform = v2.Compose([
             v2.Resize(64),
-            v2.ToTensor(),
-            # v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            v2.ToTensor()
         ])
-        if normalize:
-            transform = v2.Compose([
-                transform,
-                v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-            ])
+        test_transform = v2.Compose([
+            train_transform,
+            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        transform = v2.Compose([
+            train_transform,
+            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        if augment: transform = self._apply_augmentation(transform, 64)
+        if not wait_transform:
+            train_transform = transform
+
         if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
             import urllib.request
 
@@ -321,9 +356,8 @@ class Datasets():
             os.rmdir(val_img_dir)
             os.remove(zip_path)
 
-        testset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'val'), transform=transform)
-        if augment: transform = self._apply_augmentation(transform, 64)
-        trainset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'train'), transform=transform)
+        testset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'val'), transform=test_transform)
+        trainset = torchvision.datasets.ImageFolder(root=os.path.join(out_dir, 'tiny-imagenet-200', 'train'), transform=train_transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
@@ -331,7 +365,25 @@ class Datasets():
         else:
             train_dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, transform
+    
+class TensorDatasetWithTransform(Dataset):
+    def __init__(self, data, labels, transform=None):
+        self.data = data
+        self.labels = labels
+        self.transform = transform  # Store transform function
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        x = self.data[idx]
+        y = self.labels[idx]
+
+        if self.transform:
+            x = self.transform(x)  # Apply transform if provided
+
+        return x, y
     
 class Schedulers():
     """
