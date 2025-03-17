@@ -151,6 +151,49 @@ class KDLoss(nn.Module):
 
         return self.alpha * kl_div_loss + (1.0 - self.alpha) * ce_loss
     
+class OGKLAttentionAwareKDLoss(nn.Module):
+    '''
+    Attention-aware knowledge distillation loss that compares internal representation
+    of two models using KL-Divergence.
+
+    Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
+    '''
+    def __init__(self, llambda: float = 0.99, alpha: float = 0.9, factor: float = 0.01, total_epochs: int = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
+        self.ce = nn.CrossEntropyLoss()
+
+        assert(llambda >= 0 and llambda <= 1)
+        self.llambda = torch.tensor(llambda)
+        self.factor = factor
+        self.total_epochs = total_epochs
+
+        self.step_size = -(self.llambda / self.total_epochs) if total_epochs else 0
+
+    def forward(self, outputs: list[Tensor | list[Tensor]]):
+
+        teacher_out, teacher_layers = outputs[0]
+        student_out, student_layers = outputs[1]
+        
+        at_loss = 0
+        for t_layer, s_layer in zip(teacher_layers, student_layers):
+
+            teacher = t_layer.flatten(start_dim=1)
+            student = s_layer.flatten(start_dim=1)
+
+            teacher = F.normalize(teacher, p=1)
+            student = F.normalize(student, p=1)
+
+            at_loss += self.kl_div(F.log_softmax(student, dim=1), F.log_softmax(teacher, dim=1))
+
+        ce_loss = self.ce(student_out, teacher_out)
+
+        return (1 - self.llambda) * at_loss + (self.llambda) * ce_loss
+    
+    def step(self):
+        self.llambda += self.step_size
+    
 class ELBOLoss(torch.nn.Module):
     def __init__(self, beta=1.0, reduction='mean'):
         """
