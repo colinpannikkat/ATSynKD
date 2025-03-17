@@ -262,7 +262,7 @@ class Encoder(nn.Module):
             nn.ReLU()
         )
 
-        self.upsample = nn.Sequential(
+        self.downsample = nn.Sequential(
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1),
@@ -273,7 +273,7 @@ class Encoder(nn.Module):
             nn.ReLU()
         )
 
-        shape_post_upsample = (
+        shape_post_downsample = (
             image_shape[0],
             image_shape[1] // (2 ** 5),
             image_shape[2] // (2 ** 5)
@@ -281,7 +281,7 @@ class Encoder(nn.Module):
 
         self.flatten = nn.Flatten()
         self.encode = nn.Sequential(
-            nn.Linear(in_features=512 * shape_post_upsample[1] * shape_post_upsample[2], out_features=32),
+            nn.Linear(in_features=512 * shape_post_downsample[1] * shape_post_downsample[2], out_features=32),
             nn.ReLU(),
             nn.Linear(in_features=32, out_features=16),
             nn.ReLU()
@@ -298,7 +298,7 @@ class Encoder(nn.Module):
         projected_label = self.project(label)
         x_w_label = self.concat(x, projected_label)
         x_w_label = self.conv1(x_w_label)
-        x_encoded = self.upsample(x_w_label)
+        x_encoded = self.downsample(x_w_label)
         x_encoded_flat = self.flatten(x_encoded)
         x_dense = self.encode(x_encoded_flat)
         z_mu = self.mu(x_dense)
@@ -311,7 +311,7 @@ class Decoder(nn.Module):
     def __init__(self, input_shape, image_shape, *args, **kwargs):
         super(Decoder, self).__init__(*args, **kwargs)
 
-        shape_post_upsample = (
+        shape_post_downsample = (
             image_shape[0],
             image_shape[1] // (2 ** 5),
             image_shape[2] // (2 ** 5)
@@ -322,10 +322,12 @@ class Decoder(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=16, out_features=32),
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=512 * shape_post_upsample[1] * shape_post_upsample[2])
+            nn.Linear(in_features=32, out_features=512 * shape_post_downsample[1] * shape_post_downsample[2])
         )
-        self.reshape = lambda x: x.view(-1, 512, shape_post_upsample[1], shape_post_upsample[2])
-        self.downsample = nn.Sequential(
+        self.reshape = lambda x: x.view(-1, 512, shape_post_downsample[1], shape_post_downsample[2])
+        self.upsample = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
             nn.ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
             nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=4, stride=2, padding=1),
@@ -339,14 +341,14 @@ class Decoder(nn.Module):
         )
         self.flatten = nn.Flatten()
         self.decode = nn.Sequential(
-            nn.Linear(in_features=3 * image_shape[1] * image_shape[2], out_features=image_shape[0] * image_shape[1] * image_shape[2]),
+            nn.Linear(in_features=3 * image_shape[1] * image_shape[2] * 4, out_features=image_shape[0] * image_shape[1] * image_shape[2]),
             nn.Sigmoid()
         )
     
     def forward(self, z_cond):
         z = self.dense(z_cond)
         z = self.reshape(z)
-        z = self.downsample(z)
+        z = self.upsample(z)
         z = self.flatten(z)
         x_decoded = self.decode(z)
         return x_decoded
