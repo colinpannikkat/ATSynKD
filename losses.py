@@ -141,13 +141,13 @@ class KDLoss(nn.Module):
 
         # Soft targets
         soft_label =  F.softmax(teacher_out, dim=1)
-        kl_div_loss = self.ce(student_out, soft_label)
+        soft_loss = self.ce(student_out, soft_label)
 
         # Hard targets
         hard_label = teacher_out.argmax(dim=1)
-        ce_loss = self.ce(student_out, hard_label)
+        hard_loss = self.ce(student_out, hard_label)
 
-        return self.alpha * kl_div_loss + (1.0 - self.alpha) * ce_loss
+        return self.alpha * soft_loss + (1.0 - self.alpha) * hard_loss
     
 class OGKLAttentionAwareKDLoss(nn.Module):
     '''
