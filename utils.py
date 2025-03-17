@@ -190,12 +190,17 @@ class Datasets():
 
         return train_dataloader, test_dataloader
     
-    def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False) -> tuple[DataLoader, DataLoader]:
+    def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True) -> tuple[DataLoader, DataLoader]:
         transform = v2.Compose([
             v2.Resize(64),
             v2.ToTensor(),
-            v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            # v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
+        if normalize:
+            transform = v2.Compose([
+                transform,
+                v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            ])
         if not os.path.exists(os.path.join(out_dir, 'tiny-imagenet-200')):
             import urllib.request
 
