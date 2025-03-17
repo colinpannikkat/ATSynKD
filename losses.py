@@ -101,7 +101,7 @@ class SSIMAttentionAwareNMLoss(nn.Module):
     def nmse(self, student: torch.Tensor, teacher: torch.Tensor):
         """Compute NMSE loss between student and teacher activations, with stability constant."""
         num = torch.norm(student - teacher, p=2, dim=1) ** 2
-        denom = (torch.norm(student, p=2, dim=1) + torch.norm(teacher, p=2, dim=1) + self.stability_const) ** 2
+        denom = (torch.norm(student, p=2, dim=1) ** 2) + (torch.norm(teacher, p=2, dim=1) ** 2) + self.stability_const
         return (num / denom).mean()
 
     def forward(self, outputs: list[torch.Tensor | list[torch.Tensor]]):
