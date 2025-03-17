@@ -49,12 +49,6 @@ img_shape = (32, 32, 3)
 n_class = 100
 n_feature = 32 * 32 * 3
 
-# Load CIFAR100 dataset
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-])
-
 # train_dataset = CIFAR100(root='./data', train=True, download=True, transform=transform)
 # train_loader = DataLoader(train_dataset, batch_size=args.batchsize, shuffle=True, num_workers=4)
 train_loader, test_loader = Datasets().load_cifar100(batch_size=args.batchsize, n=50)
@@ -167,10 +161,20 @@ class CVAE(nn.Module):
         z = self.reparameterize(mu, log_var)
         recon = self.decoder(z, cond)
         return recon, mu, log_var
+    
+def weight_init(m):
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+    elif isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+    if hasattr(m, 'bias') and m.bias is not None:
+        nn.init.zeros_(m.bias)
 
 # Initialize model
 cvae = CVAE(args.latent, n_class, args.cvaemethod).to(device)
-optimizer = torch.optim.Adam(cvae.parameters())
+cvae.apply(weight_init)
+optimizer = torch.optim.Adam(cvae.parameters(), lr=1e-2)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, min_lr=1e-5)
 
 # Training function
 def train(epoch):
@@ -179,11 +183,6 @@ def train(epoch):
     for batch_idx, (data, label) in enumerate(tqdm(train_loader)):
         data = data.to(device)
         label = label.to(device)
-        
-        # # Get teacher predictions (placeholder)
-        # with torch.no_grad():
-        #     # y_pred = teacher(data)
-        #     y_pred = torch.randn(data.size(0), n_class).to(device)
 
         cond = F.one_hot(label, num_classes=n_class).float()
         
@@ -192,7 +191,7 @@ def train(epoch):
         
         # Calculate losses
         BCE = F.binary_cross_entropy(recon_batch, data.view(-1, 3*32*32), reduction='sum')
-        KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1).mean()
         
         loss = BCE + KLD
         loss.backward()
@@ -200,7 +199,8 @@ def train(epoch):
         optimizer.step()
     
     avg_loss = train_loss / len(train_loader.dataset)
-    print(f'Epoch {epoch}, Average loss: {avg_loss:.4f}')
+    print(f'Epoch {epoch}, Average loss: {avg_loss:.4f}, LR: {optimizer.param_groups[0]["lr"]:.6f}')
+    scheduler.step(avg_loss)
     return avg_loss
 
 # Training loop
@@ -263,9 +263,9 @@ def plot_images():
         # Plot images
         fig, axs = plt.subplots(3, 10, figsize=(20, 6))
         for i in range(10):
-            axs[0, i].imshow(real_images[i].cpu().permute(1, 2, 0) * 0.5 + 0.5)
-            axs[1, i].imshow(recon_images[i].cpu().view(3, 32, 32).permute(1, 2, 0) * 0.5 + 0.5)
-            axs[2, i].imshow(gen_images[i].cpu().view(3, 32, 32).permute(1, 2, 0) * 0.5 + 0.5)
+            axs[0, i].imshow(real_images[i].cpu().permute(1, 2, 0))
+            axs[1, i].imshow(recon_images[i].cpu().view(3, 32, 32).permute(1, 2, 0))
+            axs[2, i].imshow(gen_images[i].cpu().view(3, 32, 32).permute(1, 2, 0))
             axs[0, i].axis('off')
             axs[1, i].axis('off')
             axs[2, i].axis('off')
