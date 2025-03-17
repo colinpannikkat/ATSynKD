@@ -151,13 +151,43 @@ class KDLoss(nn.Module):
 
         return self.alpha * kl_div_loss + (1.0 - self.alpha) * ce_loss
     
-def kl_divergence(mu, logvar):
-    return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+class ELBOLoss(torch.nn.Module):
+    def __init__(self, beta=1.0, reduction='mean'):
+        """
+        ELBO Loss for Conditional Variational Autoencoder (CVAE).
+        
+        Args:
+            beta (float): Weight for the KL divergence term.
+            reduction (str): Specifies the reduction to apply to the output: 'mean' or 'sum'.
+        """
+        super(ELBOLoss, self).__init__()
+        self.beta = torch.tensor(beta)
+        self.reduction = reduction
 
-def reconstruction_loss(x_recon, x):
-    return F.mse_loss(x_recon, x, reduction='sum') / x.shape[0]
-
-def elbo_loss(x, x_recon, mu, logvar):
-    recon_loss = reconstruction_loss(x_recon, x)
-    kl_loss = kl_divergence(mu, logvar)
-    return recon_loss + kl_loss, recon_loss, kl_loss
+    def forward(self, x_recon, x, mu, logvar):
+        """
+        Compute the ELBO loss.
+        
+        Args:
+            x_recon (Tensor): Reconstructed input (output from decoder).
+            x (Tensor): Original input.
+            mu (Tensor): Mean of the latent space distribution.
+            logvar (Tensor): Log-variance of the latent space distribution.
+        
+        Returns:
+            Tensor: Computed ELBO loss.
+        """
+        # Reconstruction loss (Negative Log-Likelihood)
+        recon_loss = F.mse_loss(x_recon, x, reduction=self.reduction)
+        
+        # KL Divergence loss
+        # D_KL(q(z|x) || p(z)) = 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
+        
+        if self.reduction == 'mean':
+            kl_div = kl_div.mean()
+        elif self.reduction == 'sum':
+            kl_div = kl_div.sum()
+        
+        # ELBO loss: Reconstruction loss + weighted KL divergence
+        return recon_loss + self.beta * kl_div, recon_loss, kl_div
