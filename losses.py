@@ -132,7 +132,6 @@ class KDLoss(nn.Module):
     def __init__(self, alpha: float = 0.9, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.alpha = alpha
-        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
 
     def forward(self, outputs: list[Tensor | list[Tensor]]):
@@ -141,9 +140,8 @@ class KDLoss(nn.Module):
         student_out = outputs[1][0]
 
         # Soft targets
-        soft_targets = F.log_softmax(student_out, dim=1)
-        soft_labels = F.softmax(teacher_out, dim=1)
-        kl_div_loss = self.kl_div(soft_targets, soft_labels)
+        soft_label =  F.softmax(teacher_out, dim=1)
+        kl_div_loss = self.ce(student_out, soft_label)
 
         # Hard targets
         hard_label = teacher_out.argmax(dim=1)
