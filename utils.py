@@ -256,7 +256,7 @@ class Datasets():
 
     def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
         train_transform = v2.Compose([
-            v2.Resize(64),
+            v2.Resize(32),
             v2.ToTensor()
         ])
         test_transform = v2.Compose([
@@ -266,7 +266,7 @@ class Datasets():
         transform = v2.Compose([
             v2.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
         ])
-        if augment: transform = self._apply_augmentation(transform, 64)
+        if augment: transform = self._apply_augmentation(transform, 32)
         if not wait_transform:
             train_transform = v2.Compose([
                 train_transform,
