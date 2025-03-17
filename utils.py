@@ -123,21 +123,41 @@ class Datasets():
 
         if cvae:
             m2 = m - m1
-            cvae = CVAE().load_state_dict(torch.load(cvae))
+            cvae_state = torch.load(cvae)
+            cvae_model = CVAE(num_classes=self.num_classes, latent_dim=2, image_shape=self.image_shape)
+            cvae_model.load_state_dict(cvae_state)
 
             # Generate M2 CVAE images
             m2_half = m2 // 2
-            zN = torch.randn(m2_half, cvae.latent_dim)  # Sample from normal distribution N(0, 1)
-            zU = torch.empty(m2_half, cvae.latent_dim).uniform_(-3, 3)  # Sample from uniform distribution U([-3, 3]^d)
+            zN = torch.randn(m2_half, 2)  # Sample from normal distribution N(0, 1)
+            zU = torch.empty(m2_half, 2).uniform_(-3, 3)  # Sample from uniform distribution U([-3, 3]^d)
             z = torch.cat([zN, zU], dim=0)  # Concatenate zN and zU
 
-            # Create ycvae with balanced classes
-            num_classes = len(torch.unique(train_labels))
-            ycvae = torch.arange(num_classes).repeat_interleave(m2 // num_classes)
-            ycvae = ycvae[:m2]  # Ensure the length matches m2
+            # Compute number of generated samples for each class
+            n_gen_each_class = m2 // self.num_classes
+            ycvae = []
+            for label in range(self.num_classes):
+                ycvae.extend([label] * n_gen_each_class)
+            ycvae = torch.tensor(ycvae, dtype=torch.long)
+
+            # Convert labels from integers to one-hot encodings
+            ycvae_hot = F.one_hot(ycvae, num_classes=self.num_classes).float()
+
+            # Ensure lengths match
+            len_z_cvae, len_y_cvae = len(z), len(ycvae)
+            if len_z_cvae > len_y_cvae:
+                z = z[:len_y_cvae]
+            if len_y_cvae > len_z_cvae:
+                ycvae = ycvae[:len_z_cvae]
+
+            # Create conditioned z
+            z_cond = torch.cat([z, ycvae_hot], dim=1)
 
             # Generate CVAE images
-            xcvae = cvae.decode(z, ycvae)
+            xcvae = cvae_model.decoder(z_cond)
+
+            xcvae = xcvae.cpu().detach()
+            xcvae = xcvae.view(-1, self.image_shape[0], self.image_shape[1], self.image_shape[2])
 
             # Combine CVAE images with the dataset
             train_images = torch.cat([train_images, xcvae], dim=0)
@@ -255,6 +275,8 @@ class Datasets():
         return train_dataloader, test_dataloader, transform
 
     def load_cifar100(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
+        self.num_classes = 100
+        self.image_shape = (3, 32, 32)
         train_transform = v2.Compose([
             v2.Resize(32),
             v2.ToTensor()
@@ -307,6 +329,8 @@ class Datasets():
         return train_dataloader, test_dataloader, transform
     
     def load_tinyimagenet(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
+        self.num_classes = 200
+        self.image_shape = (3, 64, 64)
         train_transform = v2.Compose([
             v2.Resize(64),
             v2.ToTensor()
