@@ -101,7 +101,7 @@ class SSIMAttentionAwareNMLoss(nn.Module):
     def nmse(self, student: torch.Tensor, teacher: torch.Tensor):
         """Compute NMSE loss between student and teacher activations, with stability constant."""
         num = torch.norm(student - teacher, p=2, dim=1) ** 2
-        denom = (torch.norm(student, p=2, dim=1) + torch.norm(teacher, p=2, dim=1) + self.stability_const) ** 2
+        denom = (torch.norm(student, p=2, dim=1) ** 2) + (torch.norm(teacher, p=2, dim=1) ** 2) + self.stability_const
         return (num / denom).mean()
 
     def forward(self, outputs: list[torch.Tensor | list[torch.Tensor]]):
@@ -132,7 +132,6 @@ class KDLoss(nn.Module):
     def __init__(self, alpha: float = 0.9, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.alpha = alpha
-        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
         self.ce = torch.nn.CrossEntropyLoss()
 
     def forward(self, outputs: list[Tensor | list[Tensor]]):
@@ -141,15 +140,14 @@ class KDLoss(nn.Module):
         student_out = outputs[1][0]
 
         # Soft targets
-        soft_targets = F.log_softmax(student_out, dim=1)
-        soft_labels = F.softmax(teacher_out, dim=1)
-        kl_div_loss = self.kl_div(soft_targets, soft_labels)
+        soft_label =  F.softmax(teacher_out, dim=1)
+        soft_loss = self.ce(student_out, soft_label)
 
         # Hard targets
         hard_label = teacher_out.argmax(dim=1)
-        ce_loss = self.ce(student_out, hard_label)
+        hard_loss = self.ce(student_out, hard_label)
 
-        return self.alpha * kl_div_loss + (1.0 - self.alpha) * ce_loss
+        return self.alpha * soft_loss + (1.0 - self.alpha) * hard_loss
     
 class OGKLAttentionAwareKDLoss(nn.Module):
     '''
