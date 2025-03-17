@@ -52,11 +52,12 @@ class EuclidAttentionAwareKDLoss(nn.Module):
 
     Lambda closer to 1 puts more weight on cross-entropy and less on kl divergence.
     '''
-    def __init__(self, llambda: float = 1e3, *args, **kwargs):
+    def __init__(self, llambda: float = 1e3, alpha: float = 0.9, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.ce = torch.nn.CrossEntropyLoss()
         self.llambda = torch.tensor(llambda)
+        self.kd = KDLoss(alpha=alpha)
 
     def forward(self, outputs: list[Tensor | list[Tensor]]):
 
@@ -74,7 +75,8 @@ class EuclidAttentionAwareKDLoss(nn.Module):
 
             at_loss += torch.norm(student - teacher, p=2, dim=1).mean()
 
-        ce_loss = self.ce(student_out, teacher_out.argmax(1))
+        # ce_loss = self.ce(student_out, teacher_out.argmax(1))
+        ce_loss = self.kd([[teacher_out], [student_out]])
 
         return self.llambda/2 * at_loss + ce_loss
 
@@ -140,7 +142,7 @@ class KDLoss(nn.Module):
         student_out = outputs[1][0]
 
         # Soft targets
-        soft_label =  F.softmax(teacher_out, dim=1)
+        soft_label = F.softmax(teacher_out, dim=1)
         soft_loss = self.ce(student_out, soft_label)
 
         # Hard targets

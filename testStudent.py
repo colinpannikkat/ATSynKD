@@ -6,9 +6,9 @@ from argparse import ArgumentParser
 
 def testModel(model_path, dataset):
     if dataset == "cifar100":
-        trainloader, testloader = Datasets().load_cifar100(batch_size=256)
+        trainloader, testloader, _ = Datasets().load_cifar100(batch_size=256)
     elif dataset == "tiny-imagenet":
-        trainloader, testloader = Datasets().load_tinyimagenet(batch_size=256)
+        trainloader, testloader, _ = Datasets().load_tinyimagenet(batch_size=256)
 
     student = load_resnet20(dataset, weights=torch.load(model_path))
     student = student.to('cuda')
