@@ -184,6 +184,8 @@ def main():
     parser.add_argument("-warmup", action='store_true', help="Enable warmup")
     parser.add_argument("-reducer", action='store_true', help="Enable learning rate reducer on plateau")
     parser.add_argument("-synth", default=None, type=int, help="Desired number of synthetic images, will generate M synthetic images")
+    parser.add_argument("-cvae", default=None, type=str, help="Path to CVAE weights")
+    parser.add_argument("-beta", default=0.05, type=float, help="Threshold to eliminate MixUp images")
     parser.add_argument("-augment", action='store_true', help="Apply AutoAugment when building dataset")
     parser.add_argument("-lr_args", help="Pass in as JSON string ex: '{'start_factor':0.5, 'warmup_period':5}'. See utils.py for more information on the arguments that can be passed in.", default="{}", type=str)
     parser.add_argument("-name", help="Designate name of training for out file", default=None)
@@ -244,7 +246,7 @@ def main():
 
     # Get Data
     data = Datasets(seed=seed)
-    trainset, testset = data.load(dataset=args.dataset, n=args.n, batch_size=args.batch, augment=args.augment, synth=args.synth)
+    trainset, testset = data.load(dataset=args.dataset, n=args.n, batch_size=args.batch, augment=args.augment, synth=args.synth, cvae=args.cvae, beta=args.beta)
     lr_args['len_train_loader'] = len(trainset)
 
     # Define scheduler

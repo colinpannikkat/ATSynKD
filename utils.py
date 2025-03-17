@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import os
 import zipfile
 import json
+from models import CVAE
 
 class Datasets():
     '''
@@ -34,7 +35,7 @@ class Datasets():
     def __init__(self, seed: int = 42):
         torch.manual_seed(seed) # used for fetching random subset of data for few sample
 
-    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: int = None) -> tuple[DataLoader, DataLoader]:
+    def load(self, dataset, n, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, synth: int = None, cvae: str = None, beta: float = 0.05) -> tuple[DataLoader, DataLoader]:
         match dataset:
             case "mnist":
                 train, test = self.load_mnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
@@ -52,12 +53,96 @@ class Datasets():
                 raise ValueError(f"Dataset {dataset} is not supported.")
         
         if synth:
-            train, test = self._generate_synth(train, test, synth)
+            train, test = self._generate_synth(train, test, synth, beta, cvae)
 
         return train, test
-    
-    def _generate_synth(self, train: DataLoader, m: int):
-        raise(NotImplementedError)
+
+    def _generate_synth(self, train: DataLoader, test: DataLoader, m: int, beta: float = 0.05, cvae: str = None):
+        """
+        Generates synthetic mixup images and updates the training DataLoader.
+
+        Args:
+        train (DataLoader): Original training DataLoader.
+        test (DataLoader): Original test DataLoader.
+        m (int): Number of synthetic images to generate.
+
+        Returns:
+        DataLoader: Updated training DataLoader with mixup and CVAE images.
+        DataLoader: Original test DataLoader.
+        """
+
+        def mixup_images(images, labels, m, alpha=0.05):
+            """
+            Generates mixup images using the MixUp technique.
+
+            Args:
+            images (Tensor): Original images of shape (N, C, H, W).
+            labels (Tensor): Corresponding labels of shape (N,).
+            m (int): Number of mixup images to generate.
+            alpha (float): Alpha parameter for the Beta distribution.
+
+            Returns:
+            Tensor: Mixup images of shape (M, C, H, W).
+            Tensor: Corresponding mixup labels of shape (M,).
+            """
+            n = images.size(0)
+            beta_dist = torch.distributions.Beta(alpha, alpha)
+
+            # Sample indices and lambda values
+            idx1 = torch.randint(0, n, (m,))
+            idx2 = torch.randint(0, n, (m,))
+            lambdas = beta_dist.sample((m,))
+
+            # Filter out disqualified lambda values
+            valid_mask = (lambdas > alpha) & (lambdas < 1 - alpha)
+            disqualified = m - valid_mask.sum().item()  # Count disqualified images
+            idx1, idx2, lambdas = idx1[valid_mask], idx2[valid_mask], lambdas[valid_mask]
+
+            # Generate mixup images and labels
+            lambdas = lambdas.view(-1, 1, 1, 1)  # Reshape for broadcasting
+            mixup_images = lambdas * images[idx1] + (1 - lambdas) * images[idx2]
+            mixup_labels = lambdas.squeeze() * labels[idx1] + (1 - lambdas.squeeze()) * labels[idx2]
+
+            return mixup_images, mixup_labels, disqualified
+
+        train_images, train_labels = zip(*[(images, labels) for images, labels in train])
+        train_images = torch.cat(train_images, dim=0)
+        train_labels = torch.cat(train_labels, dim=0)
+        mix_images, mixup_labels, m1 = mixup_images(train_images, train_labels, m, beta)
+
+        print("M1: ", m1)
+
+        # Combine original and mixup data
+        train_images = torch.cat([train_images, mix_images], dim=0)
+        train_labels = torch.cat([train_labels, mixup_labels], dim=0)
+
+        if cvae:
+            m2 = m - m1
+            cvae = CVAE().load_state_dict(torch.load(cvae))
+
+            # Generate M2 CVAE images
+            m2_half = m2 // 2
+            zN = torch.randn(m2_half, cvae.latent_dim)  # Sample from normal distribution N(0, 1)
+            zU = torch.empty(m2_half, cvae.latent_dim).uniform_(-3, 3)  # Sample from uniform distribution U([-3, 3]^d)
+            z = torch.cat([zN, zU], dim=0)  # Concatenate zN and zU
+
+            # Create ycvae with balanced classes
+            num_classes = len(torch.unique(train_labels))
+            ycvae = torch.arange(num_classes).repeat_interleave(m2 // num_classes)
+            ycvae = ycvae[:m2]  # Ensure the length matches m2
+
+            # Generate CVAE images
+            xcvae = cvae.decode(z, ycvae)
+
+            # Combine CVAE images with the dataset
+            train_images = torch.cat([train_images, xcvae], dim=0)
+            train_labels = torch.cat([train_labels, ycvae], dim=0)
+
+        # Update the DataLoader
+        combined_dataset = torch.utils.data.TensorDataset(train_images, train_labels)
+        combined_loader = DataLoader(combined_dataset, batch_size=train.batch_size, shuffle=True)
+
+        return combined_loader, test
             
     def _apply_augmentation(self, base_transform: v2.Compose, image_size: int) -> v2.Compose:
         # return v2.Compose([
