@@ -1,0 +1,1 @@
+python train.py -dataset tiny-imagenet -kd -klat -llambda 0.99 -alpha 1 -weights tinyimagenet_teacher_train15.pt -n 50 -lr 0.1 -batch 128 -epochs 100 -sgd -momentum 0.9 -weight_decay 1e-4 -augment -reducer -lr_args '{"factor" : 0.1, "patience": 5}' -name og_klat_sched_b128_e200_lr1_reduce_sgd_l99_a100
