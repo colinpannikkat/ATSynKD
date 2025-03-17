@@ -187,7 +187,7 @@ class OGKLAttentionAwareKDLoss(nn.Module):
 
             at_loss += self.kl_div(F.log_softmax(student, dim=1), F.log_softmax(teacher, dim=1))
 
-        ce_loss = self.ce(student_out, teacher_out)
+        ce_loss = self.ce(student_out, F.softmax(teacher_out, dim=1))
 
         return (1 - self.llambda) * at_loss + (self.llambda) * ce_loss
     
