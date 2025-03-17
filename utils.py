@@ -254,7 +254,7 @@ class Datasets():
             v2.ToTensor()
         ])
         test_transform = v2.Compose([
-            transform,
+            train_transform,
             v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         ])
         transform = v2.Compose([
