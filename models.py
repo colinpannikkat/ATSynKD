@@ -234,7 +234,7 @@ class ResDecoder(nn.Module):
         x = self.res_up_block2(x)
         x = self.res_up_block3(x)
 
-        x = torch.tanh(self.conv_out(x))
+        x = torch.sigmoid(self.conv_out(x))
         return x
 
 class ResCVAE(nn.Module):
@@ -247,47 +247,119 @@ class ResCVAE(nn.Module):
         encoding, mu, log_var = self.encoder(x, y)
         recon_img = self.decoder(encoding, y)
         return recon_img, mu, log_var
-
+    
 class Encoder(nn.Module):
-    def __init__(self, input_dim, latent_dim, num_classes):
-        super(Encoder, self).__init__()
-        self.fc1 = nn.Linear(input_dim + num_classes, 400)
-        self.fc2_mu = nn.Linear(400, latent_dim)  # Mean
-        self.fc2_logvar = nn.Linear(400, latent_dim)  # Log-variance
+    def __init__(self, num_classes, image_shape, latent_dim, *args, **kwargs):
+        super(Encoder, self).__init__(*args, **kwargs)
 
-    def forward(self, x, y_soft):
-        x = x.view(x.size(0), -1)  # Flatten input to [batch, input_dim]
-        x = torch.cat([x, y_soft], dim=1)  # Concatenate hard labels
-        h = F.relu(self.fc1(x))
-        mu = self.fc2_mu(h)
-        logvar = self.fc2_logvar(h)
-        return mu, logvar
+        self.project = nn.Sequential(
+            nn.Linear(in_features=num_classes, out_features=image_shape[1] * image_shape[2] * 1),
+            nn.Unflatten(1, (1, image_shape[1], image_shape[2]))
+        )
+        self.concat = lambda x, label: torch.cat([x, label], dim=1)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=image_shape[0] + 1, out_channels=32, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
+        )
 
-class Decoder(nn.Module):
-    def __init__(self, latent_dim, output_dim, num_classes):
-        super(Decoder, self).__init__()
-        self.fc1 = nn.Linear(latent_dim + num_classes, 400)
-        self.fc2 = nn.Linear(400, output_dim)
+        self.upsample = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
+        )
 
-    def forward(self, z, y_hard):
-        z = torch.cat([z, y_hard], dim=1)  # Concatenate hard labels
-        h = F.elu(self.fc1(z))
-        x_recon = torch.sigmoid(self.fc2(h))  # Sigmoid for reconstruction
-        return x_recon
+        shape_post_upsample = (
+            image_shape[0],
+            image_shape[1] // (2 ** 5),
+            image_shape[2] // (2 ** 5)
+        )
 
-class CVAE(nn.Module):
-    def __init__(self, input_dim, latent_dim, output_dim, num_classes):
-        super(CVAE, self).__init__()
-        self.encoder = Encoder(input_dim, latent_dim, num_classes)
-        self.decoder = Decoder(latent_dim, output_dim, num_classes)
+        self.flatten = nn.Flatten()
+        self.encode = nn.Sequential(
+            nn.Linear(in_features=512 * shape_post_upsample[1] * shape_post_upsample[2], out_features=32),
+            nn.ReLU(),
+            nn.Linear(in_features=32, out_features=16),
+            nn.ReLU()
+        )
+        self.mu = nn.Linear(in_features=16, out_features=latent_dim)
+        self.log_var = nn.Linear(in_features=16, out_features=latent_dim)
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
+    def reparameterize(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
+    
+    def forward(self, x, label):
+        projected_label = self.project(label)
+        x_w_label = self.concat(x, projected_label)
+        x_w_label = self.conv1(x_w_label)
+        x_encoded = self.upsample(x_w_label)
+        x_encoded_flat = self.flatten(x_encoded)
+        x_dense = self.encode(x_encoded_flat)
+        z_mu = self.mu(x_dense)
+        z_log_var = self.log_var(x_dense)
+        z = self.reparameterize(z_mu, z_log_var)
+        z_cond = self.concat(z, label)
+        return z_cond, z_mu, z_log_var
+    
+class Decoder(nn.Module):
+    def __init__(self, input_shape, image_shape, *args, **kwargs):
+        super(Decoder, self).__init__(*args, **kwargs)
 
-    def forward(self, x, y_soft):
-        mu, logvar = self.encoder(x, y_soft)
-        z = self.reparameterize(mu, logvar)
-        x_recon = self.decoder(z, y_soft)
-        return x_recon, mu, logvar
+        shape_post_upsample = (
+            image_shape[0],
+            image_shape[1] // (2 ** 5),
+            image_shape[2] // (2 ** 5)
+        )
+
+        self.dense = nn.Sequential(
+            nn.Linear(in_features=input_shape, out_features=16),
+            nn.ReLU(),
+            nn.Linear(in_features=16, out_features=32),
+            nn.ReLU(),
+            nn.Linear(in_features=32, out_features=512 * shape_post_upsample[1] * shape_post_upsample[2])
+        )
+        self.reshape = lambda x: x.view(-1, 512, shape_post_upsample[1], shape_post_upsample[2])
+        self.downsample = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=64, out_channels=32, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=32, out_channels=3, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
+        )
+        self.flatten = nn.Flatten()
+        self.decode = nn.Sequential(
+            nn.Linear(in_features=3 * image_shape[1] * image_shape[2], out_features=image_shape[0] * image_shape[1] * image_shape[2]),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, z_cond):
+        z = self.dense(z_cond)
+        z = self.reshape(z)
+        z = self.downsample(z)
+        z = self.flatten(z)
+        x_decoded = self.decode(z)
+        return x_decoded
+    
+class CVAE(nn.Module):
+    def __init__(self, num_classes, latent_dim, image_shape, *args, **kwargs):
+        super(CVAE, self).__init__(*args, **kwargs)
+        
+        self.encoder = Encoder(num_classes, image_shape, latent_dim)
+        self.decoder = Decoder(input_shape=num_classes+latent_dim,
+                                  image_shape=image_shape)
+        
+    def forward(self, x, label):
+        z_cond, z_mu, z_log_var = self.encoder(x, label)
+        x_recon = self.decoder(z_cond)
+        return x_recon, z_mu, z_log_var
