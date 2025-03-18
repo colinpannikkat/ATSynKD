@@ -47,7 +47,7 @@ class Datasets():
             case "fashionmnist":
                 train, test, transform = self.load_fashionmnist(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
             case "cifar10":
-                train, test, transform = self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment)
+                train, test, transform = self.load_cifar10(n, batch_size=batch_size, out_dir=out_dir, augment=augment, wait_transform=wait_transform)
             case "cifar100":
                 train, test, transform = self.load_cifar100(n, batch_size=batch_size, out_dir=out_dir, augment=augment, wait_transform=wait_transform)
             case "imagenet":
@@ -248,23 +248,26 @@ class Datasets():
 
         return train_dataloader, test_dataloader, transform
 
-    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True, wait_normalize: bool = False) -> tuple[DataLoader, DataLoader]:
-        transform = v2.Compose([
+    def load_cifar10(self, n: int = -1, batch_size: int = 128, out_dir: str = "./data/", augment: bool = False, normalize: bool = True, wait_transform: bool = False) -> tuple[DataLoader, DataLoader]:
+        train_transform = v2.Compose([
             v2.Resize(32),
             v2.ToTensor()
         ])
         test_transform = v2.Compose([
-            transform,
+            train_transform,
             v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         ])
-        if wait_normalize:
-            transform = v2.Compose([
-                transform,
-                v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        transform = v2.Compose([
+            v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        ])
+        if augment: transform = self._apply_augmentation(transform, 32)
+        if not wait_transform:
+            train_transform = v2.Compose([
+                train_transform,
+                transform
             ])
-            if augment: transform = self._apply_augmentation(transform, 32)
         testset = CIFAR10(out_dir, train=False, download=True, transform=test_transform)
-        trainset = CIFAR10(out_dir, train=True, download=True, transform=transform)
+        trainset = CIFAR10(out_dir, train=True, download=True, transform=train_transform)
         test_dataloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
 
         if n != -1:
