@@ -2,6 +2,8 @@
 
 Project code and experimental results for our AI535 Deep Learning Final Project.
 
+Writeup is available in `writeup.pdf`.
+
 Based on the works:
 * [Paying More Attention to Attention](https://arxiv.org/pdf/1612.03928)
 * [Few Sample Knowledge Distillation for Efficient Network Compression](https://openaccess.thecvf.com/content_CVPR_2020/html/Li_Few_Sample_Knowledge_Distillation_for_Efficient_Network_Compression_CVPR_2020_paper.html)
