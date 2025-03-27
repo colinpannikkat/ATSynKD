@@ -1,0 +1,22 @@
+{
+    "args": {
+        "dataset": "tiny-imagenet",
+        "n": -1,
+        "kd": false,
+        "weights": null,
+        "small": false,
+        "big": true,
+        "batch": 512,
+        "lr": 0.01,
+        "weight_decay": 0.0001,
+        "eps": 1e-08,
+        "epochs": 50,
+        "llambda": 0.1,
+        "scheduler": null,
+        "warmup": false,
+        "reducer": false,
+        "synth": null,
+        "augment": true,
+        "lr_args": "{}"
+    }
+}

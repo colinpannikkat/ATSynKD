@@ -177,7 +177,4 @@ data/
 
 *.pt
 
-*metrics.json
-*info.json
 *.out
-metrics.png

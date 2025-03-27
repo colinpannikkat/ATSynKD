@@ -1,0 +1,1 @@
+python train.py -dataset tiny-imagenet -kd -ssimat -llambda 0.9 -alpha 1 -weights tinyimagenet_teacher_train15.pt -n 50 -lr 0.1 -batch 128 -epochs 200 -sgd -momentum 0.9 -weight_decay 1e-4 -augment -reducer -synth 50000 -cvae cvae_tinyimagenet.pth -lr_args '{"factor" : 0.1, "patience": 5}' -name ssimsynthkd_sched_b128_e200_lr1_reduce_sgd_l90_a100

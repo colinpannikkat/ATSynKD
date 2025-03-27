@@ -1,0 +1,102 @@
+{
+    "args": {
+        "dataset": "tiny-imagenet",
+        "n": 50,
+        "kd": true,
+        "klat": true,
+        "euclidat": false,
+        "ssimat": false,
+        "weights": "tinyimagenet_teacher_train15.pt",
+        "small": false,
+        "big": false,
+        "batch": 128,
+        "lr": 0.1,
+        "weight_decay": 0.0001,
+        "momentum": 0.9,
+        "sgd": true,
+        "eps": 1e-08,
+        "epochs": 100,
+        "llambda": 0.99,
+        "factor": null,
+        "alpha": 0.9,
+        "scheduler": null,
+        "warmup": true,
+        "reducer": true,
+        "synth": null,
+        "augment": true,
+        "lr_args": "{\"factor\" : 0.1, \"patience\": 5}",
+        "name": "og_klat_sched_b128_e200_lr1_reduce_sgd_l99"
+    },
+    "metrics": {
+        "1": {
+            "train_loss": 26.021117270747318,
+            "train_acc": 0.004549050632911392,
+            "val_loss": 21.96610887442963,
+            "val_acc": 0.003659018987341772,
+            "lr": 0.010000000000000002
+        },
+        "2": {
+            "train_loss": NaN,
+            "train_acc": 0.0052412974683544306,
+            "val_loss": NaN,
+            "val_acc": 0.005439082278481013,
+            "lr": 0.020000000000000004
+        },
+        "3": {
+            "train_loss": NaN,
+            "train_acc": 0.0052412974683544306,
+            "val_loss": NaN,
+            "val_acc": 0.005537974683544304,
+            "lr": 0.03
+        },
+        "4": {
+            "train_loss": NaN,
+            "train_acc": 0.005142405063291139,
+            "val_loss": NaN,
+            "val_acc": 0.005537974683544304,
+            "lr": 0.04000000000000001
+        },
+        "5": {
+            "train_loss": NaN,
+            "train_acc": 0.004944620253164557,
+            "val_loss": NaN,
+            "val_acc": 0.005537974683544304,
+            "lr": 0.05
+        },
+        "6": {
+            "train_loss": NaN,
+            "train_acc": 0.005834651898734177,
+            "val_loss": NaN,
+            "val_acc": 0.005636867088607595,
+            "lr": 0.06
+        },
+        "7": {
+            "train_loss": NaN,
+            "train_acc": 0.005439082278481013,
+            "val_loss": NaN,
+            "val_acc": 0.005439082278481013,
+            "lr": 0.006999999999999999
+        },
+        "8": {
+            "train_loss": NaN,
+            "train_acc": 0.005537974683544304,
+            "val_loss": NaN,
+            "val_acc": 0.005537974683544304,
+            "lr": 0.08000000000000002
+        },
+        "9": {
+            "train_loss": NaN,
+            "train_acc": 0.005636867088607595,
+            "val_loss": NaN,
+            "val_acc": 0.005340189873417721,
+            "lr": 0.09000000000000001
+        },
+        "10": {
+            "train_loss": NaN,
+            "train_acc": 0.005439082278481013,
+            "val_loss": NaN,
+            "val_acc": 0.005636867088607595,
+            "lr": 0.1
+        }
+    }
+}
